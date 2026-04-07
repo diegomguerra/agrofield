@@ -23,20 +23,20 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     // Busca dados do usuário na tabela users
     const { data: user } = await fastify.supabase
       .from('users')
-      .select('id, name, role, tenant_id')
-      .eq('auth_id', data.user.id)
+      .select('id, nome, perfil, tenant_id')
+      .eq('id', data.user.id)
       .single()
 
     if (!user) return reply.notFound('Usuário não encontrado')
 
     const token = fastify.jwt.sign(
-      { sub: user.id, tenant_id: user.tenant_id, role: user.role },
+      { sub: user.id, tenant_id: user.tenant_id, role: user.perfil },
       { expiresIn: '7d' }
     )
 
     return reply.send({
       token,
-      user: { id: user.id, name: user.name, role: user.role },
+      user: { id: user.id, name: user.nome, role: user.perfil },
     })
   })
 

@@ -22,7 +22,7 @@ export const dailyLogsRoutes: FastifyPluginAsync = async (fastify) => {
     async (request) => {
       let query = fastify.supabase
         .from('daily_logs')
-        .select(`*, collaborator:users(id, name), vehicle:vehicles(id, plate, model)`)
+        .select(`*, collaborator:users(id, nome), vehicle:vehicles(id, plate, model)`)
         .eq('tenant_id', getTenant(request))
         .order('date', { ascending: false })
 
