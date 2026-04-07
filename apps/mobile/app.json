@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "AgroField",
+    "slug": "agrofield",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1d6c1c"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "dev.agrofield.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1d6c1c"
+      },
+      "package": "dev.agrofield.app"
+    },
+    "extra": {
+      "apiUrl": "https://agrofieldapi-production.up.railway.app"
+    },
+    "plugins": [
+      "expo-sqlite"
+    ]
+  }
+}

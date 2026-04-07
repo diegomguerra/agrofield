@@ -20,7 +20,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.unauthorized('Credenciais inválidas')
     }
 
-    // Busca dados do usuário na tabela users
+    // Busca dados do usuário na tabela users (schema em português)
     const { data: user } = await fastify.supabase
       .from('users')
       .select('id, nome, perfil, tenant_id')
@@ -40,7 +40,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     })
   })
 
-  // POST /auth/refresh — valida token atual e emite novo
+  // POST /auth/refresh
   fastify.post('/refresh', async (request, reply) => {
     try {
       const payload = await request.jwtVerify<{
