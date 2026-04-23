@@ -3,7 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator, RefreshControl,
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useNavigation } from '@react-navigation/native'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { listVisitsLocal } from '../../hooks/useVisits'
@@ -21,7 +21,7 @@ type LocalVisit = {
 }
 
 export default function VisitsScreen() {
-  const router = useRouter()
+  const nav = useNavigation<any>()
   const [visits, setVisits] = useState<LocalVisit[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -98,7 +98,7 @@ export default function VisitsScreen() {
           return (
             <TouchableOpacity
               style={styles.card}
-              onPress={() => router.push(`/visits/${item.id}`)}
+              onPress={() => {}}
               activeOpacity={0.75}
             >
               <View style={styles.cardRow}>
@@ -126,7 +126,7 @@ export default function VisitsScreen() {
       />
 
       {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => router.push('/visits/new')}>
+      <TouchableOpacity style={styles.fab} onPress={() => nav.navigate('NewVisit')}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
     </View>
