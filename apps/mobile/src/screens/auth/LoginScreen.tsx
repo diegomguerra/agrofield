@@ -3,14 +3,12 @@ import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native'
-import { useRouter } from 'expo-router'
 import axios from 'axios'
-import { useAuthStore } from '../store/auth'
+import { useAuthStore } from '../../store/auth'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 export default function LoginScreen() {
-  const router = useRouter()
   const login = useAuthStore((s) => s.login)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,7 +21,6 @@ export default function LoginScreen() {
     try {
       const { data } = await axios.post(`${API_URL}/auth/login`, { email, password })
       login(data.token, data.user)
-      router.replace('/(tabs)')
     } catch {
       setError('E-mail ou senha inválidos.')
     } finally {
