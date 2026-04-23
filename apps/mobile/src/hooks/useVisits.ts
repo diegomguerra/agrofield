@@ -8,6 +8,9 @@ export interface CreateVisitInput {
   date: string
   km_start?: number
   km_end?: number
+  latitude?: number
+  longitude?: number
+  gps_accuracy?: number
   observations?: string
   // Própria
   work_hours?: number
@@ -32,8 +35,8 @@ export async function createVisitOffline(input: CreateVisitInput): Promise<strin
   // Insere visita principal
   await db.runAsync(
     `INSERT INTO visits
-      (id, property_id, collaborator_id, date, km_start, km_end, observations, work_hours, tenant_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, property_id, collaborator_id, date, km_start, km_end, latitude, longitude, gps_accuracy, observations, work_hours, tenant_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       visitId,
       input.property_id,
@@ -41,6 +44,9 @@ export async function createVisitOffline(input: CreateVisitInput): Promise<strin
       input.date,
       input.km_start ?? null,
       input.km_end ?? null,
+      input.latitude ?? null,
+      input.longitude ?? null,
+      input.gps_accuracy ?? null,
       input.observations ?? null,
       input.work_hours ?? null,
       user.tenant_id,
@@ -56,6 +62,9 @@ export async function createVisitOffline(input: CreateVisitInput): Promise<strin
     date: input.date,
     km_start: input.km_start,
     km_end: input.km_end,
+    latitude: input.latitude,
+    longitude: input.longitude,
+    gps_accuracy: input.gps_accuracy,
     observations: input.observations,
     work_hours: input.work_hours,
     tenant_id: user.tenant_id,

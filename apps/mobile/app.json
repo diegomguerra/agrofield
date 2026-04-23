@@ -13,20 +13,34 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "dev.agrofield.app"
+      "bundleIdentifier": "dev.agrofield.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "O AgroField usa sua localização para registrar as coordenadas GPS das visitas e do diário de campo.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "O AgroField usa sua localização para registrar as coordenadas GPS das visitas e do diário de campo."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1d6c1c"
       },
-      "package": "dev.agrofield.app"
+      "package": "dev.agrofield.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "extra": {
       "apiUrl": "https://agrofieldapi-production.up.railway.app"
     },
     "plugins": [
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "O AgroField usa sua localização para registrar as coordenadas GPS das visitas e do diário de campo."
+        }
+      ]
     ]
   }
 }

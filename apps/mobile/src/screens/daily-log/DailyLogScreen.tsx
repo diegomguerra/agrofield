@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { getDb, uuid } from '../../lib/db'
 import { enqueue } from '../../lib/sync'
 import { useAuthStore } from '../../store/auth'
+import { useLocation } from '../../hooks/useLocation'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -26,6 +27,7 @@ export default function DailyLogScreen() {
   const [logs, setLogs] = useState<DailyLog[]>([])
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  const { coords, loading: gpsLoading, error: gpsError, requestLocation } = useLocation()
 
   // Form state
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -54,6 +56,9 @@ export default function DailyLogScreen() {
     if (!user) return
     setSaving(true)
     try {
+      // Captura GPS fresco no momento do salvamento
+      const gps = await requestLocation()
+
       const id = uuid()
       const payload = {
         id,
@@ -61,6 +66,9 @@ export default function DailyLogScreen() {
         collaborator_id: user.id,
         km_start: kmStart ? Number(kmStart) : null,
         km_end: kmEnd ? Number(kmEnd) : null,
+        latitude: gps?.latitude ?? coords?.latitude ?? null,
+        longitude: gps?.longitude ?? coords?.longitude ?? null,
+        gps_accuracy: gps?.accuracy ?? coords?.accuracy ?? null,
         fuel_liters: fuelLiters ? Number(fuelLiters) : null,
         fuel_cost: fuelCost ? Number(fuelCost) : null,
         observations: observations || null,
@@ -68,9 +76,10 @@ export default function DailyLogScreen() {
       }
 
       await getDb().runAsync(
-        `INSERT INTO daily_logs (id, date, collaborator_id, km_start, km_end, fuel_liters, fuel_cost, observations, tenant_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO daily_logs (id, date, collaborator_id, km_start, km_end, latitude, longitude, gps_accuracy, fuel_liters, fuel_cost, observations, tenant_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, payload.date, payload.collaborator_id, payload.km_start, payload.km_end,
+         payload.latitude, payload.longitude, payload.gps_accuracy,
          payload.fuel_liters, payload.fuel_cost, payload.observations, payload.tenant_id]
       )
 
@@ -191,6 +200,25 @@ export default function DailyLogScreen() {
                 />
               </View>
 
+              {/* Indicador GPS */}
+              <View style={styles.gpsRow}>
+                <Text style={styles.gpsIcon}>{coords ? '📍' : gpsError ? '⚠️' : '🔄'}</Text>
+                {gpsLoading ? (
+                  <ActivityIndicator size="small" color={C.primary} style={{ marginLeft: 8 }} />
+                ) : (
+                  <Text style={[styles.gpsText, coords ? styles.gpsOk : gpsError ? styles.gpsErr : null]}>
+                    {coords
+                      ? `GPS: ${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`
+                      : gpsError ?? 'Obtendo localização...'}
+                  </Text>
+                )}
+                {!gpsLoading && !coords && (
+                  <TouchableOpacity onPress={requestLocation} style={{ marginLeft: 8 }}>
+                    <Text style={{ color: C.primary, fontWeight: '600', fontSize: 13 }}>Tentar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
               <TouchableOpacity
                 style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
                 onPress={handleSave}
@@ -246,6 +274,15 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.border,
     borderRadius: 8, padding: 12, fontSize: 15, color: C.text,
   },
+  gpsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.border,
+    borderRadius: 8, padding: 12, marginBottom: 16,
+  },
+  gpsIcon: { fontSize: 16 },
+  gpsText: { marginLeft: 8, fontSize: 13, color: C.subtle, flex: 1 },
+  gpsOk: { color: C.primaryDark, fontWeight: '500' },
+  gpsErr: { color: '#e74c3c' },
   saveBtn: { backgroundColor: C.primary, borderRadius: 10, padding: 16, alignItems: 'center' },
   saveBtnDisabled: { backgroundColor: '#c8c2b5' },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },

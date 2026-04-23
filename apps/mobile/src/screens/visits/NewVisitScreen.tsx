@@ -6,6 +6,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
 import { createVisitOffline } from '../../hooks/useVisits'
+import { useLocation } from '../../hooks/useLocation'
 import { getDb } from '../../lib/db'
 
 const C = {
@@ -42,6 +43,7 @@ function SectionHeader({ title }: { title: string }) {
 
 export default function NewVisitScreen() {
   const nav = useNavigation()
+  const { coords, loading: gpsLoading, error: gpsError, requestLocation } = useLocation()
   const [properties, setProperties] = useState<Property[]>([])
   const [propertyId, setPropertyId] = useState('')
   const [selectedProp, setSelectedProp] = useState<Property | null>(null)
@@ -52,6 +54,9 @@ export default function NewVisitScreen() {
   const [observations, setObservations] = useState('')
   const [workHours, setWorkHours] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Captura GPS ao abrir a tela
+  useEffect(() => { requestLocation() }, [])
 
   const isPropria = selectedProp?.tipo === 'propria'
   const km = kmStart && kmEnd && Number(kmEnd) > Number(kmStart)
@@ -67,12 +72,18 @@ export default function NewVisitScreen() {
     if (!propertyId) return Alert.alert('Atenção', 'Selecione uma propriedade.')
     setSaving(true)
     try {
+      // Captura GPS fresco no momento do salvamento
+      const gps = await requestLocation()
+
       await createVisitOffline({
         property_id: propertyId,
         property_tipo: selectedProp!.tipo as 'propria' | 'cliente',
         date,
         km_start: kmStart ? Number(kmStart) : undefined,
         km_end: kmEnd ? Number(kmEnd) : undefined,
+        latitude: gps?.latitude ?? coords?.latitude,
+        longitude: gps?.longitude ?? coords?.longitude,
+        gps_accuracy: gps?.accuracy ?? coords?.accuracy,
         observations: observations || undefined,
         work_hours: workHours ? Number(workHours) : undefined,
       })
@@ -188,6 +199,29 @@ export default function NewVisitScreen() {
           </View>
         )}
 
+        {/* Indicador GPS */}
+        <View style={styles.gpsRow}>
+          <Ionicons
+            name={coords ? 'location' : gpsError ? 'location-outline' : 'locate-outline'}
+            size={18}
+            color={coords ? C.primary : gpsError ? '#e74c3c' : C.subtle}
+          />
+          {gpsLoading ? (
+            <ActivityIndicator size="small" color={C.primary} style={{ marginLeft: 8 }} />
+          ) : (
+            <Text style={[styles.gpsText, coords ? styles.gpsOk : gpsError ? styles.gpsErr : null]}>
+              {coords
+                ? `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}${coords.accuracy ? ` (~${Math.round(coords.accuracy)}m)` : ''}`
+                : gpsError ?? 'Obtendo localização...'}
+            </Text>
+          )}
+          {!gpsLoading && !coords && (
+            <TouchableOpacity onPress={requestLocation} style={{ marginLeft: 8 }}>
+              <Text style={{ color: C.primary, fontWeight: '600', fontSize: 13 }}>Tentar novamente</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <Field label="Observações">
           <TextInput
             style={[styles.input, styles.textarea]}
@@ -275,6 +309,14 @@ const styles = StyleSheet.create({
   tipoTextCliente: { color: '#a8451d' },
   kmBadge: { backgroundColor: C.primaryMuted, borderRadius: 6, padding: 8, marginBottom: 14 },
   kmBadgeText: { color: C.primaryDark, fontSize: 13, fontWeight: '600' },
+  gpsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff', borderWidth: 1.5, borderColor: C.border,
+    borderRadius: 8, padding: 12, marginBottom: 14,
+  },
+  gpsText: { marginLeft: 8, fontSize: 13, color: C.subtle, flex: 1 },
+  gpsOk: { color: C.primaryDark, fontWeight: '500' },
+  gpsErr: { color: '#e74c3c' },
   saveBtn: {
     backgroundColor: C.primary, borderRadius: 10,
     padding: 16, alignItems: 'center', marginTop: 8,

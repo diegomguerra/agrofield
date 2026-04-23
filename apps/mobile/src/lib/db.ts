@@ -40,6 +40,9 @@ export async function initDb(): Promise<void> {
       date TEXT NOT NULL,
       km_start REAL,
       km_end REAL,
+      latitude REAL,
+      longitude REAL,
+      gps_accuracy REAL,
       observations TEXT,
       work_hours REAL,
       tenant_id TEXT NOT NULL,
@@ -83,6 +86,9 @@ export async function initDb(): Promise<void> {
       vehicle_id TEXT,
       km_start REAL,
       km_end REAL,
+      latitude REAL,
+      longitude REAL,
+      gps_accuracy REAL,
       fuel_liters REAL,
       fuel_cost REAL,
       observations TEXT,
@@ -90,6 +96,9 @@ export async function initDb(): Promise<void> {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       synced_at TEXT
     );
+
+    -- Migração: adiciona colunas GPS em tabelas existentes
+    -- (ALTER TABLE IF NOT EXISTS não existe em SQLite, mas ADD COLUMN é ignorado se já existir via try/catch no JS)
 
     -- Fila de sincronização
     CREATE TABLE IF NOT EXISTS sync_queue (
@@ -101,6 +110,19 @@ export async function initDb(): Promise<void> {
       synced_at TEXT
     );
   `)
+
+  // Migração para adicionar colunas GPS em bancos já existentes
+  const gpsMigrations = [
+    'ALTER TABLE visits ADD COLUMN latitude REAL',
+    'ALTER TABLE visits ADD COLUMN longitude REAL',
+    'ALTER TABLE visits ADD COLUMN gps_accuracy REAL',
+    'ALTER TABLE daily_logs ADD COLUMN latitude REAL',
+    'ALTER TABLE daily_logs ADD COLUMN longitude REAL',
+    'ALTER TABLE daily_logs ADD COLUMN gps_accuracy REAL',
+  ]
+  for (const sql of gpsMigrations) {
+    try { await db.execAsync(sql) } catch { /* coluna já existe */ }
+  }
 }
 
 /**
