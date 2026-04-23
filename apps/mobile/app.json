@@ -13,7 +13,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "dev.agrofield.app",
+      "bundleIdentifier": "com.diegoguerra.agrofield",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "O AgroField usa sua localização para registrar as coordenadas GPS das visitas e do diário de campo.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "O AgroField usa sua localização para registrar as coordenadas GPS das visitas e do diário de campo.",
