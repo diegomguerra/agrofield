@@ -40,9 +40,21 @@ export function useLocation() {
         return null
       }
 
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      })
+      // Em sinal fraco getCurrentPositionAsync pode travar — race contra timeout,
+      // com fallback pra última posição conhecida (até 5min) antes de desistir.
+      const fix = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 10000)),
+      ])
+
+      const location =
+        fix ?? (await Location.getLastKnownPositionAsync({ maxAge: 5 * 60 * 1000 }))
+
+      if (!location) {
+        const msg = 'Sinal de GPS fraco. Tente novamente em local aberto.'
+        setError(msg)
+        return null
+      }
 
       const result: GpsCoords = {
         latitude: location.coords.latitude,

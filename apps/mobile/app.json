@@ -16,7 +16,6 @@
       "bundleIdentifier": "com.diegoguerra.agrofield",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "O AgroField usa sua localização para registrar as coordenadas GPS das visitas e do diário de campo.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "O AgroField usa sua localização para registrar as coordenadas GPS das visitas e do diário de campo.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -28,9 +27,7 @@
       "package": "dev.agrofield.app",
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "ACCESS_COARSE_LOCATION"
       ]
     },
     "extra": {
@@ -43,7 +40,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "O AgroField usa sua localização para registrar as coordenadas GPS das visitas e do diário de campo."
+          "locationWhenInUsePermission": "O AgroField usa sua localização para registrar as coordenadas GPS das visitas e do diário de campo."
         }
       ]
     ],
