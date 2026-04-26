@@ -1,0 +1,76 @@
+require 'json'
+
+default_platform(:ios)
+
+APP_IDENTIFIER  = "com.diegoguerra.agrofield"
+TEAM_ID         = "WNB4G5T7Z6"
+WORKSPACE       = "AgroField.xcworkspace"
+SCHEME          = "AgroField"
+INFO_PLIST_PATH = "AgroField/Info.plist"
+
+def asc_key
+  app_store_connect_api_key(
+    key_id:      ENV.fetch("APP_STORE_CONNECT_API_KEY_ID"),
+    issuer_id:   ENV.fetch("APP_STORE_CONNECT_API_ISSUER_ID"),
+    key_filepath: ENV.fetch("APP_STORE_CONNECT_API_KEY_PATH"),
+    duration:    1200,
+    in_house:    false,
+  )
+end
+
+platform :ios do
+  desc "Dry archive — sanity check, no upload"
+  lane :build do
+    key = asc_key
+    next_build = latest_testflight_build_number(
+      api_key:        key,
+      app_identifier: APP_IDENTIFIER,
+      initial_build_number: 0,
+    ) + 1
+    set_info_plist_value(path: INFO_PLIST_PATH, key: "CFBundleVersion", value: next_build.to_s)
+    increment_build_number(xcodeproj: "AgroField.xcodeproj", build_number: next_build)
+    build_app(
+      workspace: WORKSPACE,
+      scheme:    SCHEME,
+      export_method: "app-store",
+      xcargs: "-allowProvisioningUpdates DEVELOPMENT_TEAM=#{TEAM_ID} CODE_SIGN_STYLE=Automatic",
+    )
+  end
+
+  desc "One-time: install Dev + Distribution certs locally for this Mac"
+  lane :setup_certs do
+    key = asc_key
+    cert(api_key: key, development: true,  force: true, team_id: TEAM_ID)
+    cert(api_key: key, development: false,                team_id: TEAM_ID)
+  end
+
+  desc "Build + upload to TestFlight Internal group (no review)"
+  lane :internal do
+    key = asc_key
+    # Sync marketing version (CFBundleShortVersionString) from app.json so the
+    # Info.plist never drifts behind app.json — fastlane's increment_build_number
+    # only bumps CFBundleVersion, not the marketing version.
+    app_version = JSON.parse(File.read("../app.json"))["expo"]["version"]
+    set_info_plist_value(path: INFO_PLIST_PATH, key: "CFBundleShortVersionString", value: app_version)
+    next_build = latest_testflight_build_number(
+      api_key:        key,
+      app_identifier: APP_IDENTIFIER,
+      initial_build_number: 0,
+    ) + 1
+    set_info_plist_value(path: INFO_PLIST_PATH, key: "CFBundleVersion", value: next_build.to_s)
+    increment_build_number(xcodeproj: "AgroField.xcodeproj", build_number: next_build)
+    build_app(
+      workspace: WORKSPACE,
+      scheme:    SCHEME,
+      export_method: "app-store",
+      xcargs: "-allowProvisioningUpdates DEVELOPMENT_TEAM=#{TEAM_ID} CODE_SIGN_STYLE=Automatic",
+    )
+    upload_to_testflight(
+      api_key:                  key,
+      app_identifier:           APP_IDENTIFIER,
+      skip_waiting_for_build_processing: true,
+      skip_submission:          true,
+      changelog: "GPS ativado nas visitas e diário de campo. Build interno.",
+    )
+  end
+end
