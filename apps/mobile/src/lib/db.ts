@@ -20,14 +20,36 @@ export async function initDb(): Promise<void> {
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
 
-    -- Propriedades (cache somente leitura)
+    -- Propriedades (cache somente leitura, mas pode ser criado offline)
     CREATE TABLE IF NOT EXISTS properties (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       tipo TEXT NOT NULL CHECK(tipo IN ('propria', 'cliente')),
       city TEXT,
       area_hectares REAL,
+      latitude REAL,
+      longitude REAL,
       tenant_id TEXT NOT NULL,
+      synced_at TEXT
+    );
+
+    -- Viagens (1ª saída do dia → ponto de chegada, distância e tempo)
+    CREATE TABLE IF NOT EXISTS trips (
+      id TEXT PRIMARY KEY,
+      collaborator_id TEXT NOT NULL,
+      start_at TEXT NOT NULL,
+      end_at TEXT,
+      start_latitude REAL,
+      start_longitude REAL,
+      end_latitude REAL,
+      end_longitude REAL,
+      start_property_id TEXT,
+      end_property_id TEXT,
+      distance_km REAL,
+      duration_minutes REAL,
+      observations TEXT,
+      tenant_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
       synced_at TEXT
     );
 
@@ -111,16 +133,18 @@ export async function initDb(): Promise<void> {
     );
   `)
 
-  // Migração para adicionar colunas GPS em bancos já existentes
-  const gpsMigrations = [
+  // Migração: ALTER TABLE ADD COLUMN é idempotente via try/catch
+  const migrations = [
     'ALTER TABLE visits ADD COLUMN latitude REAL',
     'ALTER TABLE visits ADD COLUMN longitude REAL',
     'ALTER TABLE visits ADD COLUMN gps_accuracy REAL',
     'ALTER TABLE daily_logs ADD COLUMN latitude REAL',
     'ALTER TABLE daily_logs ADD COLUMN longitude REAL',
     'ALTER TABLE daily_logs ADD COLUMN gps_accuracy REAL',
+    'ALTER TABLE properties ADD COLUMN latitude REAL',
+    'ALTER TABLE properties ADD COLUMN longitude REAL',
   ]
-  for (const sql of gpsMigrations) {
+  for (const sql of migrations) {
     try { await db.execAsync(sql) } catch { /* coluna já existe */ }
   }
 }

@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
 import * as Location from 'expo-location'
 import { getDb, uuid } from '../../lib/db'
@@ -25,14 +25,21 @@ const C = {
 
 type Tipo = 'propria' | 'cliente'
 
+type RouteParams = { latitude?: number; longitude?: number }
+
 export default function NewPropertyScreen() {
   const nav = useNavigation<any>()
+  const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>()
   const user = useAuthStore((s) => s.user)
+  const prefilledCoords =
+    route.params?.latitude != null && route.params?.longitude != null
+      ? { latitude: route.params.latitude, longitude: route.params.longitude }
+      : null
   const [name, setName] = useState('')
   const [tipo, setTipo] = useState<Tipo>('propria')
   const [city, setCity] = useState('')
   const [area, setArea] = useState('')
-  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null)
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(prefilledCoords)
   const [locating, setLocating] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -68,11 +75,16 @@ export default function NewPropertyScreen() {
       const id = uuid()
       const areaNum = area ? Number(area.replace(',', '.')) : null
 
-      // Inserir localmente
+      // Inserir localmente (incluindo coords pra trip-matching offline)
       await getDb().runAsync(
-        `INSERT INTO properties (id, name, tipo, city, area_hectares, tenant_id, synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, NULL)`,
-        [id, name.trim(), tipo, city.trim() || null, areaNum, user.tenant_id]
+        `INSERT INTO properties
+          (id, name, tipo, city, area_hectares, latitude, longitude, tenant_id, synced_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        [
+          id, name.trim(), tipo, city.trim() || null, areaNum,
+          coords?.latitude ?? null, coords?.longitude ?? null,
+          user.tenant_id,
+        ]
       )
 
       // Enfileirar para sync

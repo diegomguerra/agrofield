@@ -14,9 +14,14 @@ export async function syncProperties(): Promise<void> {
     const db = getDb()
     for (const p of data) {
       await db.runAsync(
-        `INSERT OR REPLACE INTO properties (id, name, tipo, city, area_hectares, tenant_id, synced_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
-        [p.id, p.name, p.tipo, p.city ?? null, p.area_hectares ?? null, p.tenant_id]
+        `INSERT OR REPLACE INTO properties
+          (id, name, tipo, city, area_hectares, latitude, longitude, tenant_id, synced_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+        [
+          p.id, p.name, p.tipo, p.city ?? null, p.area_hectares ?? null,
+          p.latitude ?? null, p.longitude ?? null,
+          p.tenant_id,
+        ]
       )
     }
   } catch (err) {
