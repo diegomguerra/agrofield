@@ -22,7 +22,7 @@ const C = {
   subtle: '#9a907e',
 }
 
-interface Property { id: string; nome: string; tipo: string; cidade: string }
+interface Property { id: string; name: string; tipo: string; city: string }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -64,7 +64,7 @@ export default function NewVisitScreen() {
 
   useEffect(() => {
     getDb().getAllAsync<Property>(
-      'SELECT id, nome, tipo, cidade FROM properties ORDER BY tipo DESC, nome ASC'
+      'SELECT id, name, tipo, city FROM properties ORDER BY tipo DESC, name ASC'
     ).then(setProperties)
   }, [])
 
@@ -110,7 +110,7 @@ export default function NewVisitScreen() {
             onPress={() => setShowPropList(!showPropList)}
           >
             <Text style={selectedProp ? styles.inputText : styles.placeholder}>
-              {selectedProp ? selectedProp.nome : 'Selecione…'}
+              {selectedProp ? selectedProp.name : 'Selecione…'}
             </Text>
             <Ionicons name="chevron-down" size={16} color={C.subtle} />
           </TouchableOpacity>
@@ -127,8 +127,8 @@ export default function NewVisitScreen() {
                   style={styles.dropdownItem}
                   onPress={() => { setPropertyId(p.id); setSelectedProp(p); setShowPropList(false) }}
                 >
-                  <Text style={styles.dropdownText}>{p.nome}</Text>
-                  {p.cidade ? <Text style={styles.dropdownSub}>{p.cidade}</Text> : null}
+                  <Text style={styles.dropdownText}>{p.name}</Text>
+                  {p.city ? <Text style={styles.dropdownSub}>{p.city}</Text> : null}
                 </TouchableOpacity>
               ))}
               {/* Clientes */}
@@ -141,8 +141,8 @@ export default function NewVisitScreen() {
                   style={styles.dropdownItem}
                   onPress={() => { setPropertyId(p.id); setSelectedProp(p); setShowPropList(false) }}
                 >
-                  <Text style={styles.dropdownText}>{p.nome}</Text>
-                  {p.cidade ? <Text style={styles.dropdownSub}>{p.cidade}</Text> : null}
+                  <Text style={styles.dropdownText}>{p.name}</Text>
+                  {p.city ? <Text style={styles.dropdownSub}>{p.city}</Text> : null}
                 </TouchableOpacity>
               ))}
             </View>

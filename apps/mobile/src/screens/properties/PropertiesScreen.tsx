@@ -4,6 +4,7 @@ import {
   StyleSheet, TextInput, RefreshControl,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useNavigation } from '@react-navigation/native'
 import { getDb } from '../../lib/db'
 import { syncProperties } from '../../lib/sync'
 
@@ -14,17 +15,18 @@ const C = {
 }
 
 interface Property {
-  id: string; nome: string; tipo: string; cidade: string; area_hectares: number | null
+  id: string; name: string; tipo: string; city: string; area_hectares: number | null
 }
 
 export default function PropertiesScreen() {
+  const navigation = useNavigation<any>()
   const [properties, setProperties] = useState<Property[]>([])
   const [search, setSearch] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
   async function load() {
     const data = await getDb().getAllAsync<Property>(
-      'SELECT * FROM properties ORDER BY tipo DESC, nome ASC'
+      'SELECT * FROM properties ORDER BY tipo DESC, name ASC'
     )
     setProperties(data)
   }
@@ -36,11 +38,15 @@ export default function PropertiesScreen() {
     setRefreshing(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', load)
+    load()
+    return unsubscribe
+  }, [navigation])
 
   const filtered = properties.filter(p =>
-    p.nome.toLowerCase().includes(search.toLowerCase()) ||
-    (p.cidade ?? '').toLowerCase().includes(search.toLowerCase())
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.city ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
   const proprias = filtered.filter(p => p.tipo === 'propria')
@@ -51,14 +57,14 @@ export default function PropertiesScreen() {
     return (
       <View style={[styles.card, { borderLeftWidth: 3, borderLeftColor: isPropria ? C.primary : C.soil }]}>
         <View style={styles.cardRow}>
-          <Text style={styles.cardName}>{item.nome}</Text>
+          <Text style={styles.cardName}>{item.name}</Text>
           <View style={[styles.badge, isPropria ? styles.badgePropria : styles.badgeCliente]}>
             <Text style={[styles.badgeText, isPropria ? styles.badgeTextPropria : styles.badgeTextCliente]}>
               {isPropria ? 'PRÓPRIA' : 'CLIENTE'}
             </Text>
           </View>
         </View>
-        {item.cidade ? <Text style={styles.cardSub}>{item.cidade}</Text> : null}
+        {item.city ? <Text style={styles.cardSub}>{item.city}</Text> : null}
         {item.area_hectares ? (
           <Text style={styles.cardArea}>{item.area_hectares.toLocaleString('pt-BR')} ha</Text>
         ) : null}
@@ -96,10 +102,18 @@ export default function PropertiesScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />
         }
         ListEmptyComponent={
-          <Text style={styles.empty}>Nenhuma propriedade. Puxe para sincronizar.</Text>
+          <Text style={styles.empty}>Nenhuma propriedade. Toque no + para criar.</Text>
         }
         renderItem={({ item }) => <PropertyCard item={item} />}
       />
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('NewProperty')}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   )
 }
@@ -131,4 +145,12 @@ const styles = StyleSheet.create({
   badgeTextPropria: { color: C.primaryDark },
   badgeTextCliente: { color: '#a8451d' },
   empty: { textAlign: 'center', color: C.subtle, marginTop: 40, fontSize: 14 },
+  fab: {
+    position: 'absolute', bottom: 28, right: 20,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 }, elevation: 6,
+  },
+  fabText: { color: '#fff', fontSize: 28, fontWeight: '300', lineHeight: 32 },
 })

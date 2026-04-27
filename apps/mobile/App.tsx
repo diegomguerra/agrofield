@@ -11,6 +11,7 @@ import LoginScreen from './src/screens/auth/LoginScreen'
 import VisitsScreen from './src/screens/visits/VisitsScreen'
 import NewVisitScreen from './src/screens/visits/NewVisitScreen'
 import PropertiesScreen from './src/screens/properties/PropertiesScreen'
+import NewPropertyScreen from './src/screens/properties/NewPropertyScreen'
 import DailyLogScreen from './src/screens/daily-log/DailyLogScreen'
 import { Ionicons } from '@expo/vector-icons'
 
@@ -87,6 +88,17 @@ export default function App() {
                 options={{
                   headerShown: true,
                   headerTitle: 'Nova Visita',
+                  headerTintColor: COLORS.primary,
+                  headerStyle: { backgroundColor: '#fff' },
+                  presentation: 'modal',
+                }}
+              />
+              <Stack.Screen
+                name="NewProperty"
+                component={NewPropertyScreen}
+                options={{
+                  headerShown: true,
+                  headerTitle: 'Nova Propriedade',
                   headerTintColor: COLORS.primary,
                   headerStyle: { backgroundColor: '#fff' },
                   presentation: 'modal',
