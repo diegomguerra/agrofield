@@ -6,7 +6,7 @@ import {
 import axios from 'axios'
 import { useAuthStore } from '../../store/auth'
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001'
+const API_URL = 'https://agrofieldapi-production.up.railway.app'
 
 export default function LoginScreen() {
   const login = useAuthStore((s) => s.login)
