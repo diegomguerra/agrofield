@@ -99,3 +99,6 @@ export default function App() {
     </SafeAreaProvider>
   )
 }
+
+import { registerRootComponent } from 'expo'
+registerRootComponent(App)

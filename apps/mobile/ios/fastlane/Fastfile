@@ -50,7 +50,7 @@ platform :ios do
     # Sync marketing version (CFBundleShortVersionString) from app.json so the
     # Info.plist never drifts behind app.json — fastlane's increment_build_number
     # only bumps CFBundleVersion, not the marketing version.
-    app_version = JSON.parse(File.read("../app.json"))["expo"]["version"]
+    app_version = JSON.parse(File.read(File.expand_path("../../app.json", __dir__)))["expo"]["version"]
     set_info_plist_value(path: INFO_PLIST_PATH, key: "CFBundleShortVersionString", value: app_version)
     next_build = latest_testflight_build_number(
       api_key:        key,
