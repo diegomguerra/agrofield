@@ -36,7 +36,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     return reply.send({
       token,
-      user: { id: user.id, name: user.nome, role: user.perfil },
+      user: { id: user.id, name: user.nome, role: user.perfil, tenant_id: user.tenant_id },
     })
   })
 
