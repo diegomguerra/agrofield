@@ -13,7 +13,7 @@ import NewVisitScreen from './src/screens/visits/NewVisitScreen'
 import PropertiesScreen from './src/screens/properties/PropertiesScreen'
 import NewPropertyScreen from './src/screens/properties/NewPropertyScreen'
 import DailyLogScreen from './src/screens/daily-log/DailyLogScreen'
-import TripScreen from './src/screens/trip/TripScreen'
+import JourneyScreen from './src/screens/journey/JourneyScreen'
 import { Ionicons } from '@expo/vector-icons'
 
 const Stack = createNativeStackNavigator()
@@ -42,7 +42,7 @@ function TabNavigator() {
         },
         tabBarIcon: ({ focused, color, size }) => {
           const icons: Record<string, string> = {
-            Viagem: focused ? 'navigate' : 'navigate-outline',
+            Jornada: focused ? 'navigate' : 'navigate-outline',
             Visitas: focused ? 'calendar' : 'calendar-outline',
             Propriedades: focused ? 'map' : 'map-outline',
             'KM Diário': focused ? 'car' : 'car-outline',
@@ -51,7 +51,7 @@ function TabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="Viagem" component={TripScreen} />
+      <Tab.Screen name="Jornada" component={JourneyScreen} />
       <Tab.Screen name="Visitas" component={VisitsScreen} />
       <Tab.Screen name="Propriedades" component={PropertiesScreen} />
       <Tab.Screen name="KM Diário" component={DailyLogScreen} />

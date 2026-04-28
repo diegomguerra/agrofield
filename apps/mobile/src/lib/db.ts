@@ -122,6 +122,46 @@ export async function initDb(): Promise<void> {
     -- Migração: adiciona colunas GPS em tabelas existentes
     -- (ALTER TABLE IF NOT EXISTS não existe em SQLite, mas ADD COLUMN é ignorado se já existir via try/catch no JS)
 
+    -- Jornadas (1 por dia por colaborador)
+    CREATE TABLE IF NOT EXISTS journeys (
+      id TEXT PRIMARY KEY,
+      collaborator_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      total_distance_km REAL,
+      total_travel_minutes REAL,
+      total_stay_minutes REAL,
+      km_odometer_start REAL,
+      km_odometer_end REAL,
+      observations TEXT,
+      tenant_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      synced_at TEXT
+    );
+
+    -- Segmentos de jornada (deslocamento ou permanencia)
+    CREATE TABLE IF NOT EXISTS journey_segments (
+      id TEXT PRIMARY KEY,
+      journey_id TEXT NOT NULL REFERENCES journeys(id),
+      seq INTEGER NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('travel','stay')),
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      duration_minutes REAL,
+      start_latitude REAL,
+      start_longitude REAL,
+      end_latitude REAL,
+      end_longitude REAL,
+      distance_km REAL,
+      property_id TEXT,
+      observations TEXT,
+      work_hours REAL,
+      tenant_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      synced_at TEXT
+    );
+
     -- Fila de sincronização
     CREATE TABLE IF NOT EXISTS sync_queue (
       id TEXT PRIMARY KEY,
