@@ -12,7 +12,6 @@ import VisitsScreen from './src/screens/visits/VisitsScreen'
 import NewVisitScreen from './src/screens/visits/NewVisitScreen'
 import PropertiesScreen from './src/screens/properties/PropertiesScreen'
 import NewPropertyScreen from './src/screens/properties/NewPropertyScreen'
-import DailyLogScreen from './src/screens/daily-log/DailyLogScreen'
 import JourneyScreen from './src/screens/journey/JourneyScreen'
 import { Ionicons } from '@expo/vector-icons'
 
@@ -45,7 +44,6 @@ function TabNavigator() {
             Jornada: focused ? 'navigate' : 'navigate-outline',
             Visitas: focused ? 'calendar' : 'calendar-outline',
             Propriedades: focused ? 'map' : 'map-outline',
-            'KM Diário': focused ? 'car' : 'car-outline',
           }
           return <Ionicons name={icons[route.name] as any} size={size} color={color} />
         },
@@ -54,7 +52,6 @@ function TabNavigator() {
       <Tab.Screen name="Jornada" component={JourneyScreen} />
       <Tab.Screen name="Visitas" component={VisitsScreen} />
       <Tab.Screen name="Propriedades" component={PropertiesScreen} />
-      <Tab.Screen name="KM Diário" component={DailyLogScreen} />
     </Tab.Navigator>
   )
 }
