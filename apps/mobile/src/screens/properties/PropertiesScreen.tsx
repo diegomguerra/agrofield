@@ -5,8 +5,11 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
+import { Ionicons } from '@expo/vector-icons'
+import { Alert } from 'react-native'
 import { getDb } from '../../lib/db'
 import { syncProperties } from '../../lib/sync'
+import { useAuthStore } from '../../store/auth'
 
 const C = {
   primary: '#238821', primaryDark: '#1d6c1c', primaryMuted: '#dcf5db',
@@ -20,6 +23,8 @@ interface Property {
 
 export default function PropertiesScreen() {
   const navigation = useNavigation<any>()
+  const logout = useAuthStore((s) => s.logout)
+  const userName = useAuthStore((s) => s.user?.name)
   const [properties, setProperties] = useState<Property[]>([])
   const [search, setSearch] = useState('')
   const [refreshing, setRefreshing] = useState(false)
@@ -79,8 +84,21 @@ export default function PropertiesScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Propriedades</Text>
-        <Text style={styles.subtitle}>{proprias.length} próprias · {clientes.length} clientes</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Propriedades</Text>
+          <Text style={styles.subtitle}>{proprias.length} proprias / {clientes.length} clientes</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() =>
+            Alert.alert('Sair', `Deseja sair${userName ? ` (${userName})` : ''}?`, [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Sair', style: 'destructive', onPress: logout },
+            ])
+          }
+          style={{ padding: 8 }}
+        >
+          <Ionicons name="log-out-outline" size={22} color={C.subtle} />
+        </TouchableOpacity>
       </View>
 
       {/* Busca */}
@@ -120,7 +138,7 @@ export default function PropertiesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
-  header: { padding: 20, paddingBottom: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.border },
+  header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingBottom: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.border },
   title: { fontSize: 22, fontWeight: '700', color: C.text },
   subtitle: { fontSize: 13, color: C.subtle, marginTop: 2 },
   searchWrap: { padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.border },

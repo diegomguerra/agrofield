@@ -177,35 +177,37 @@ export default function JourneyScreen() {
     setBusy(true)
     try {
       const fix = await requestLocation()
-      if (!fix) { setBusy(false); return }
       const now = new Date().toISOString()
       const durMin = (Date.now() - new Date(currentSeg.startedAt).getTime()) / 60000
 
       if (currentSeg.type === 'travel') {
-        const dist = haversineKm(
-          currentSeg.startLatitude!, currentSeg.startLongitude!,
-          fix.latitude, fix.longitude,
-        )
-        store.closeCurrentSegment({
-          endedAt: now, durationMinutes: durMin,
-          endLatitude: fix.latitude, endLongitude: fix.longitude,
-          distanceKm: dist,
-        })
+        const patch: Partial<Segment> = { endedAt: now, durationMinutes: durMin }
+        if (fix) {
+          patch.endLatitude = fix.latitude
+          patch.endLongitude = fix.longitude
+          patch.distanceKm = haversineKm(
+            currentSeg.startLatitude!, currentSeg.startLongitude!,
+            fix.latitude, fix.longitude,
+          )
+        }
+        store.closeCurrentSegment(patch)
       }
 
-      setArrivalGpsCoords(`${fix.latitude.toFixed(6)}, ${fix.longitude.toFixed(6)} (~${Math.round(fix.accuracy ?? 0)}m)`)
       setArrivalPropertyId(null)
       setArrivalLocationName('')
       setObservations('')
       setWorkHours('')
 
-      // Auto-detect nearby property
-      const propsCoords: PropertyWithCoords[] = properties.map((p) => ({
-        id: p.id, name: p.name, tipo: p.tipo, latitude: p.latitude, longitude: p.longitude,
-      }))
-      const nearest = findNearestProperty(propsCoords, fix.latitude, fix.longitude, 0.5)
-      if (nearest) {
-        setArrivalPropertyId(nearest.property.id)
+      if (fix) {
+        setArrivalGpsCoords(`${fix.latitude.toFixed(6)}, ${fix.longitude.toFixed(6)} (~${Math.round(fix.accuracy ?? 0)}m)`)
+        // Auto-detect nearby property
+        const propsCoords: PropertyWithCoords[] = properties.map((p) => ({
+          id: p.id, name: p.name, tipo: p.tipo, latitude: p.latitude, longitude: p.longitude,
+        }))
+        const nearest = findNearestProperty(propsCoords, fix.latitude, fix.longitude, 0.5)
+        if (nearest) setArrivalPropertyId(nearest.property.id)
+      } else {
+        setArrivalGpsCoords(null)
       }
 
       store.setPhase('arrival')
@@ -214,6 +216,7 @@ export default function JourneyScreen() {
 
   async function handleSaveJourney() {
     if (!journey || !user) return
+    if (busy) return // guard double-tap
 
     if (!arrivalPropertyId && !arrivalLocationName.trim()) {
       return Alert.alert('Atencao', 'Informe o local de chegada (propriedade ou nome).')
@@ -246,73 +249,82 @@ export default function JourneyScreen() {
       const totStayMin = staySegs.reduce((a, s) => a + (s.durationMinutes ?? 0), 0)
       const avgSpeed = totTravelMin > 0 ? (totDistKm / (totTravelMin / 60)) : 0
 
-      await db.runAsync(
-        `INSERT INTO journeys
-          (id, collaborator_id, date, started_at, ended_at,
-           total_distance_km, total_travel_minutes, total_stay_minutes, average_speed_kmh,
-           km_odometer_start, km_odometer_end,
-           origin_property_id, origin_name, origin_city,
-           objective, client_name, invoice_number, invoice_value,
-           vehicle_type, vehicle_plate, fuel_type, fuel_price_per_liter,
-           observations, tenant_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          journey.id, user.id, journey.startedAt.split('T')[0],
-          journey.startedAt, now,
-          totDistKm, totTravelMin, totStayMin, avgSpeed,
-          journey.kmOdometerStart ?? null, journey.kmOdometerEnd ?? null,
-          journey.originPropertyId ?? null, journey.originName ?? null, journey.originCity ?? null,
-          journey.objective ?? null, journey.clientName ?? null,
-          journey.invoiceNumber ?? null, journey.invoiceValue ?? null,
-          journey.vehicle?.vehicleType ?? null, journey.vehicle?.vehiclePlate ?? null,
-          journey.vehicle?.fuelType ?? null, journey.vehicle?.fuelPricePerLiter ?? null,
-          null, user.tenant_id, now,
-        ]
-      )
-      await enqueue('journeys', 'INSERT', {
-        id: journey.id, collaborator_id: user.id,
-        date: journey.startedAt.split('T')[0],
-        started_at: journey.startedAt, ended_at: now,
-        total_distance_km: totDistKm, total_travel_minutes: totTravelMin,
-        total_stay_minutes: totStayMin, average_speed_kmh: avgSpeed,
-        km_odometer_start: journey.kmOdometerStart, km_odometer_end: journey.kmOdometerEnd,
-        origin_property_id: journey.originPropertyId,
-        origin_name: journey.originName, origin_city: journey.originCity,
-        objective: journey.objective, client_name: journey.clientName,
-        invoice_number: journey.invoiceNumber, invoice_value: journey.invoiceValue,
-        vehicle_type: journey.vehicle?.vehicleType, vehicle_plate: journey.vehicle?.vehiclePlate,
-        fuel_type: journey.vehicle?.fuelType, fuel_price_per_liter: journey.vehicle?.fuelPricePerLiter,
-        tenant_id: user.tenant_id,
-      }, uuid())
-
-      for (const seg of allSegments) {
-        if (!seg.endedAt) continue
+      // Transacao atomica — tudo ou nada
+      await db.withTransactionAsync(async () => {
         await db.runAsync(
-          `INSERT INTO journey_segments
-            (id, journey_id, seq, type, started_at, ended_at, duration_minutes,
-             start_latitude, start_longitude, end_latitude, end_longitude, distance_km,
-             property_id, location_name, observations, work_hours, tenant_id, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO journeys
+            (id, collaborator_id, date, started_at, ended_at,
+             total_distance_km, total_travel_minutes, total_stay_minutes, average_speed_kmh,
+             km_odometer_start, km_odometer_end,
+             origin_property_id, origin_name, origin_city,
+             objective, client_name, invoice_number, invoice_value,
+             vehicle_type, vehicle_plate, fuel_type, fuel_price_per_liter,
+             observations, tenant_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            seg.id, journey.id, seg.seq, seg.type,
-            seg.startedAt, seg.endedAt, seg.durationMinutes ?? null,
-            seg.startLatitude ?? null, seg.startLongitude ?? null,
-            seg.endLatitude ?? null, seg.endLongitude ?? null,
-            seg.distanceKm ?? null, seg.propertyId ?? null, seg.locationName ?? null,
-            seg.observations ?? null, seg.workHours ?? null, user.tenant_id, now,
+            journey.id, user.id, journey.startedAt.split('T')[0],
+            journey.startedAt, now,
+            totDistKm, totTravelMin, totStayMin, avgSpeed,
+            journey.kmOdometerStart ?? null, journey.kmOdometerEnd ?? null,
+            journey.originPropertyId ?? null, journey.originName ?? null, journey.originCity ?? null,
+            journey.objective ?? null, journey.clientName ?? null,
+            journey.invoiceNumber ?? null, journey.invoiceValue ?? null,
+            journey.vehicle?.vehicleType ?? null, journey.vehicle?.vehiclePlate ?? null,
+            journey.vehicle?.fuelType ?? null, journey.vehicle?.fuelPricePerLiter ?? null,
+            null, user.tenant_id, now,
           ]
         )
-        await enqueue('journey_segments', 'INSERT', {
-          id: seg.id, journey_id: journey.id, seq: seg.seq, type: seg.type,
-          started_at: seg.startedAt, ended_at: seg.endedAt,
-          duration_minutes: seg.durationMinutes,
-          start_latitude: seg.startLatitude, start_longitude: seg.startLongitude,
-          end_latitude: seg.endLatitude, end_longitude: seg.endLongitude,
-          distance_km: seg.distanceKm, property_id: seg.propertyId,
-          location_name: seg.locationName, observations: seg.observations,
-          work_hours: seg.workHours, tenant_id: user.tenant_id,
+
+        for (const seg of allSegments) {
+          if (!seg.endedAt) continue
+          await db.runAsync(
+            `INSERT INTO journey_segments
+              (id, journey_id, seq, type, started_at, ended_at, duration_minutes,
+               start_latitude, start_longitude, end_latitude, end_longitude, distance_km,
+               property_id, location_name, observations, work_hours, tenant_id, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              seg.id, journey.id, seg.seq, seg.type,
+              seg.startedAt, seg.endedAt, seg.durationMinutes ?? null,
+              seg.startLatitude ?? null, seg.startLongitude ?? null,
+              seg.endLatitude ?? null, seg.endLongitude ?? null,
+              seg.distanceKm ?? null, seg.propertyId ?? null, seg.locationName ?? null,
+              seg.observations ?? null, seg.workHours ?? null, user.tenant_id, now,
+            ]
+          )
+        }
+
+        // Enfileira sync (dentro da transacao)
+        await enqueue('journeys', 'INSERT', {
+          id: journey.id, collaborator_id: user.id,
+          date: journey.startedAt.split('T')[0],
+          started_at: journey.startedAt, ended_at: now,
+          total_distance_km: totDistKm, total_travel_minutes: totTravelMin,
+          total_stay_minutes: totStayMin, average_speed_kmh: avgSpeed,
+          km_odometer_start: journey.kmOdometerStart, km_odometer_end: journey.kmOdometerEnd,
+          origin_property_id: journey.originPropertyId,
+          origin_name: journey.originName, origin_city: journey.originCity,
+          objective: journey.objective, client_name: journey.clientName,
+          invoice_number: journey.invoiceNumber, invoice_value: journey.invoiceValue,
+          vehicle_type: journey.vehicle?.vehicleType, vehicle_plate: journey.vehicle?.vehiclePlate,
+          fuel_type: journey.vehicle?.fuelType, fuel_price_per_liter: journey.vehicle?.fuelPricePerLiter,
+          tenant_id: user.tenant_id,
         }, uuid())
-      }
+
+        for (const seg of allSegments) {
+          if (!seg.endedAt) continue
+          await enqueue('journey_segments', 'INSERT', {
+            id: seg.id, journey_id: journey.id, seq: seg.seq, type: seg.type,
+            started_at: seg.startedAt, ended_at: seg.endedAt,
+            duration_minutes: seg.durationMinutes,
+            start_latitude: seg.startLatitude, start_longitude: seg.startLongitude,
+            end_latitude: seg.endLatitude, end_longitude: seg.endLongitude,
+            distance_km: seg.distanceKm, property_id: seg.propertyId,
+            location_name: seg.locationName, observations: seg.observations,
+            work_hours: seg.workHours, tenant_id: user.tenant_id,
+          }, uuid())
+        }
+      })
 
       store.pushSegment(staySeg)
       Alert.alert('Jornada salva', 'Dados registrados. Sincronize quando houver conexao.')

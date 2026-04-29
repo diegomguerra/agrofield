@@ -4,7 +4,7 @@ import {
   StyleSheet, ActivityIndicator, RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { listVisitsLocal } from '../../hooks/useVisits'
 import { syncPendingItems } from '../../lib/sync'
@@ -170,7 +170,7 @@ export default function VisitsScreen() {
                 ) : null}
                 <View style={styles.cardFooter}>
                   <Text style={styles.cardDate}>
-                    {format(new Date(js.date), "dd 'de' MMM", { locale: ptBR })}
+                    {format(parseISO(js.date), "dd 'de' MMM", { locale: ptBR })}
                   </Text>
                   <Text style={styles.journeyBadge}>JORNADA</Text>
                 </View>
@@ -200,7 +200,7 @@ export default function VisitsScreen() {
               <Text style={styles.propertyName}>{v.property_name ?? '—'}</Text>
               <View style={styles.cardFooter}>
                 <Text style={styles.cardDate}>
-                  {format(new Date(v.date), "dd 'de' MMM", { locale: ptBR })}
+                  {format(parseISO(v.date), "dd 'de' MMM", { locale: ptBR })}
                 </Text>
                 {km != null && (
                   <Text style={styles.cardKm}>{km.toLocaleString('pt-BR')} km</Text>

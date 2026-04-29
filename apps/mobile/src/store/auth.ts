@@ -15,17 +15,19 @@ interface AuthState {
   user: User | null
   login: (token: string, user: User) => void
   logout: () => void
+  isTokenValid: () => boolean
 }
 
 interface JwtPayload {
   sub?: string
   tenant_id?: string
   role?: string
+  exp?: number
 }
 
 /**
- * Garante que user.tenant_id (e id/role) estão presentes — mesmo que a API
- * não tenha retornado, extraímos do JWT (que já contém esses claims).
+ * Garante que user.tenant_id (e id/role) estao presentes — mesmo que a API
+ * nao tenha retornado, extraimos do JWT (que ja contem esses claims).
  */
 function ensureUserClaimsFromToken(token: string, user: User): User {
   const payload = decodeJwt<JwtPayload>(token)
@@ -40,18 +42,23 @@ function ensureUserClaimsFromToken(token: string, user: User): User {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       token: null,
       user: null,
       login: (token, user) =>
         set({ token, user: ensureUserClaimsFromToken(token, user) }),
       logout: () => set({ token: null, user: null }),
+      isTokenValid: () => {
+        const { token } = get()
+        if (!token) return false
+        const payload = decodeJwt<JwtPayload>(token)
+        if (!payload?.exp) return true // token sem exp = nao expira
+        return payload.exp * 1000 > Date.now()
+      },
     }),
     {
       name: 'agrofield-auth',
       storage: createJSONStorage(() => AsyncStorage),
-      // Quando o estado persistido é re-hidratado no boot, patcha o user
-      // com claims do JWT — corrige perfis antigos sem tenant_id.
       onRehydrateStorage: () => (state) => {
         if (state?.token && state.user) {
           state.user = ensureUserClaimsFromToken(state.token, state.user)

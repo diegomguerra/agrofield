@@ -5,8 +5,7 @@ import {
 } from 'react-native'
 import axios from 'axios'
 import { useAuthStore } from '../../store/auth'
-
-const API_URL = 'https://agrofieldapi-production.up.railway.app'
+import { API_URL } from '../../lib/config'
 
 export default function LoginScreen() {
   const login = useAuthStore((s) => s.login)

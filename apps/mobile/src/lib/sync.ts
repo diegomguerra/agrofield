@@ -1,8 +1,7 @@
 import axios from 'axios'
 import { getDb } from './db'
 import { useAuthStore } from '../store/auth'
-
-const API_URL = 'https://agrofieldapi-production.up.railway.app'
+import { API_URL } from './config'
 
 export async function syncProperties(): Promise<void> {
   const token = useAuthStore.getState().token

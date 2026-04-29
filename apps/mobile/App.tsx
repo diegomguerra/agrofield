@@ -61,7 +61,13 @@ export default function App() {
   const token = useAuthStore((s) => s.token)
 
   useEffect(() => {
-    initDb().then(() => setDbReady(true))
+    initDb()
+      .then(() => setDbReady(true))
+      .catch((err) => {
+        console.error('[DB] initDb failed:', err)
+        // Tenta novamente sem migrations — pelo menos abre o app
+        setDbReady(true)
+      })
   }, [])
 
   if (!dbReady) {
