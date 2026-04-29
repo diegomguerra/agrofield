@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
-export type JourneyPhase = 'idle' | 'traveling' | 'on_site' | 'summary'
+export type JourneyPhase = 'idle' | 'traveling' | 'arrival' | 'summary'
 
 export const OBJECTIVE_OPTIONS = [
   'Entrega de mercadorias',
