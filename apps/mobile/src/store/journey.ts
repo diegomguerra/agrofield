@@ -158,6 +158,14 @@ export const useJourneyStore = create<JourneyState>()(
     {
       name: 'agrofield-active-journey',
       storage: createJSONStorage(() => AsyncStorage),
+      merge: (persisted: any, current: JourneyState) => {
+        const merged = { ...current, ...persisted }
+        // Migrate old phase 'on_site' → 'arrival'
+        if (merged.journey?.phase === 'on_site') {
+          merged.journey = { ...merged.journey, phase: 'arrival' as JourneyPhase }
+        }
+        return merged
+      },
     }
   )
 )

@@ -236,9 +236,8 @@ export default function JourneyScreen() {
         observations: observations || undefined,
         workHours: workHours ? Number(workHours) : undefined,
       }
-      store.pushSegment(staySeg)
 
-      // Now save everything
+      // Build complete segments list (journey.segments + new stay)
       const allSegments = [...journey.segments, staySeg]
       const travelSegs = allSegments.filter((s) => s.type === 'travel' && s.endedAt)
       const staySegs = allSegments.filter((s) => s.type === 'stay')
@@ -315,12 +314,13 @@ export default function JourneyScreen() {
         }, uuid())
       }
 
-      store.setPhase('summary')
+      store.pushSegment(staySeg)
       Alert.alert('Jornada salva', 'Dados registrados. Sincronize quando houver conexao.')
       store.endJourney()
       setKmOdometerEnd(''); setObservations(''); setWorkHours('')
     } catch (e: any) {
-      Alert.alert('Erro', e.message)
+      console.error('[Journey] Save error:', e)
+      Alert.alert('Erro ao salvar', `${e.message}\n\nTente novamente.`)
     } finally { setBusy(false) }
   }
 
@@ -728,7 +728,24 @@ export default function JourneyScreen() {
     )
   }
 
-  return null
+  // Fallback: unknown phase or missing data — reset to idle
+  return (
+    <SafeAreaView style={st.container} edges={['top']}>
+      <View style={[st.content, { alignItems: 'center', justifyContent: 'center', flex: 1 }]}>
+        <Ionicons name="warning" size={48} color={C.soil} />
+        <Text style={[st.title, { marginTop: 16, textAlign: 'center' }]}>Estado inconsistente</Text>
+        <Text style={[st.subtitle, { textAlign: 'center', marginBottom: 20 }]}>
+          A jornada anterior pode ter ficado em estado invalido.
+        </Text>
+        <TouchableOpacity style={st.btnPrimary} onPress={() => {
+          store.endJourney()
+        }}>
+          <Ionicons name="refresh" size={18} color="#fff" />
+          <Text style={st.btnPrimaryText}>Reiniciar</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  )
 }
 
 // ══════════════════════════════════════════════════════════════════════
