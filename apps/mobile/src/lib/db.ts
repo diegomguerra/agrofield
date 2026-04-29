@@ -197,7 +197,8 @@ export async function initDb(): Promise<void> {
     'ALTER TABLE properties ADD COLUMN latitude REAL',
     'ALTER TABLE properties ADD COLUMN longitude REAL',
     // Fix typo: tabela criada com 'aberage_speed_kmh' em versoes anteriores
-    'ALTER TABLE journeys RENAME COLUMN aberage_speed_kmh TO average_speed_kmh',
+    // ADD COLUMN garante que a coluna correta exista mesmo se a tabela foi criada com typo
+    'ALTER TABLE journeys ADD COLUMN average_speed_kmh REAL',
   ]
   for (const sql of migrations) {
     try { await db.execAsync(sql) } catch { /* coluna já existe */ }
