@@ -201,14 +201,11 @@ export default function VisitsScreen() {
             const travelKm = js.travel_distance_km ?? js.total_distance_km ?? 0
             const travelMin = js.travel_minutes ?? js.total_travel_minutes ?? 0
 
-            // Custo estimado: consumo medio por tipo de veiculo (km/l)
-            const KM_PER_LITER: Record<string, number> = {
-              'Carro': 10, 'Caminhonete': 8, 'Caminhao': 4, 'Moto': 30, 'Van': 7, 'Outro': 9,
-            }
-            const kmPerLiter = KM_PER_LITER[js.vehicle_type ?? ''] ?? 9
+            // Custo estimado: 10 km/l (premissa cidade/estrada)
+            const KM_PER_LITER = 10
             const totalKm = js.total_distance_km ?? travelKm
             const fuelCost = (js.fuel_price_per_liter && totalKm > 0)
-              ? (totalKm / kmPerLiter) * js.fuel_price_per_liter
+              ? (totalKm / KM_PER_LITER) * js.fuel_price_per_liter
               : null
             const costPerKm = (fuelCost && totalKm > 0) ? fuelCost / totalKm : null
 

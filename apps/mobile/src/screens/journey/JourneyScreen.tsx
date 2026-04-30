@@ -17,6 +17,13 @@ import {
 import { useLocation } from '../../hooks/useLocation'
 import { haversineKm, findNearestProperty, PropertyWithCoords } from '../../lib/geo'
 
+/** Converte string numérica BR (vírgula decimal) para number */
+function parseNum(s: string): number | undefined {
+  if (!s) return undefined
+  const n = Number(s.replace(',', '.'))
+  return isNaN(n) ? undefined : n
+}
+
 const C = {
   primary: '#238821', primaryDark: '#1d6c1c', primaryMuted: '#dcf5db',
   soil: '#ca5b21', soilMuted: '#faecda',
@@ -146,7 +153,7 @@ export default function JourneyScreen() {
 
       const vConfig: VehicleConfig = {
         vehicleType: vehicleType || undefined, vehiclePlate: vehiclePlate || undefined,
-        fuelType: fuelType || undefined, fuelPricePerLiter: fuelPrice ? Number(fuelPrice) : undefined,
+        fuelType: fuelType || undefined, fuelPricePerLiter: parseNum(fuelPrice),
       }
       if (vConfig.vehicleType || vConfig.vehiclePlate) store.setSavedVehicle(vConfig)
 
@@ -160,9 +167,9 @@ export default function JourneyScreen() {
         originName: oName, originCity: oCity,
         objective: objective || undefined, clientName: clientName || undefined,
         invoiceNumber: invoiceNumber || undefined,
-        invoiceValue: invoiceValue ? Number(invoiceValue) : undefined,
+        invoiceValue: parseNum(invoiceValue),
         vehicle: vConfig,
-        kmOdometerStart: kmOdometerStart ? Number(kmOdometerStart) : undefined,
+        kmOdometerStart: parseNum(kmOdometerStart),
         segments: [firstSeg], currentSegment: firstSeg, phase: 'traveling',
       }
       store.startJourney(j)
@@ -237,7 +244,7 @@ export default function JourneyScreen() {
         propertyTipo: arrivalPropertyId ? properties.find((p) => p.id === arrivalPropertyId)?.tipo : undefined,
         locationName: (!arrivalPropertyId && arrivalLocationName) ? arrivalLocationName : undefined,
         observations: observations || undefined,
-        workHours: workHours ? Number(workHours) : undefined,
+        workHours: parseNum(workHours),
       }
 
       // Build complete segments list (journey.segments + new stay)
@@ -716,7 +723,7 @@ export default function JourneyScreen() {
             <View style={st.field}>
               <Text style={st.label}>KM odometro final (opcional)</Text>
               <TextInput style={st.input} value={kmOdometerEnd}
-                onChangeText={(v) => { setKmOdometerEnd(v); if (v) store.setKmOdometerEnd(Number(v)) }}
+                onChangeText={(v) => { setKmOdometerEnd(v); const n = parseNum(v); if (n != null) store.setKmOdometerEnd(n) }}
                 placeholder="Ex: 45312" keyboardType="numeric" placeholderTextColor={C.subtle} />
             </View>
 
