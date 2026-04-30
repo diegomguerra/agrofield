@@ -50,6 +50,8 @@ type JourneyStay = {
   origin_name: string | null
   vehicle_type: string | null
   vehicle_plate: string | null
+  fuel_type: string | null
+  fuel_price_per_liter: number | null
   km_odometer_start: number | null
   km_odometer_end: number | null
   started_at: string | null
@@ -91,6 +93,8 @@ export default function VisitsScreen() {
         j.origin_name,
         j.vehicle_type,
         j.vehicle_plate,
+        j.fuel_type,
+        j.fuel_price_per_liter,
         j.km_odometer_start,
         j.km_odometer_end,
         j.started_at,
@@ -197,6 +201,17 @@ export default function VisitsScreen() {
             const travelKm = js.travel_distance_km ?? js.total_distance_km ?? 0
             const travelMin = js.travel_minutes ?? js.total_travel_minutes ?? 0
 
+            // Custo estimado: consumo medio por tipo de veiculo (km/l)
+            const KM_PER_LITER: Record<string, number> = {
+              'Carro': 10, 'Caminhonete': 8, 'Caminhao': 4, 'Moto': 30, 'Van': 7, 'Outro': 9,
+            }
+            const kmPerLiter = KM_PER_LITER[js.vehicle_type ?? ''] ?? 9
+            const totalKm = js.total_distance_km ?? travelKm
+            const fuelCost = (js.fuel_price_per_liter && totalKm > 0)
+              ? (totalKm / kmPerLiter) * js.fuel_price_per_liter
+              : null
+            const costPerKm = (fuelCost && totalKm > 0) ? fuelCost / totalKm : null
+
             return (
               <TouchableOpacity
                 style={styles.card}
@@ -230,6 +245,11 @@ export default function VisitsScreen() {
                   )}
                   {js.work_hours != null && js.work_hours > 0 && (
                     <Text style={styles.metaChip}>{js.work_hours}h trabalhadas</Text>
+                  )}
+                  {fuelCost != null && fuelCost > 0 && (
+                    <Text style={[styles.metaChip, styles.metaChipSoil]}>
+                      R$ {fuelCost.toFixed(2)}
+                    </Text>
                   )}
                   {js.objective && (
                     <Text style={[styles.metaChip, styles.metaChipBlue]}>{js.objective}</Text>
@@ -280,6 +300,18 @@ export default function VisitsScreen() {
                     )}
                     {js.average_speed_kmh != null && js.average_speed_kmh > 0 && (
                       <DetailRow label="Vel. media" value={`${js.average_speed_kmh.toFixed(0)} km/h`} />
+                    )}
+                    {js.fuel_type && (
+                      <DetailRow
+                        label="Combustivel"
+                        value={`${js.fuel_type}${js.fuel_price_per_liter ? ` (R$ ${js.fuel_price_per_liter.toFixed(2)}/l)` : ''}`}
+                      />
+                    )}
+                    {costPerKm != null && costPerKm > 0 && (
+                      <DetailRow label="Custo/km" value={`R$ ${costPerKm.toFixed(2)}`} />
+                    )}
+                    {fuelCost != null && fuelCost > 0 && (
+                      <DetailRow label="Custo jornada" value={`R$ ${fuelCost.toFixed(2)}`} />
                     )}
                   </View>
                 )}
@@ -376,6 +408,9 @@ const styles = StyleSheet.create({
   },
   metaChipBlue: {
     color: C.blue, backgroundColor: C.blueMuted,
+  },
+  metaChipSoil: {
+    color: C.soil, backgroundColor: C.soilMuted,
   },
   obsText: { fontSize: 12, color: C.subtle, fontStyle: 'italic', marginBottom: 8 },
   journeyBadge: {
