@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   View, Text, FlatList, TouchableOpacity,
-  StyleSheet, ActivityIndicator, RefreshControl,
+  StyleSheet, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { format, parseISO } from 'date-fns'
@@ -9,6 +9,13 @@ import { ptBR } from 'date-fns/locale'
 import { listVisitsLocal } from '../../hooks/useVisits'
 import { syncPendingItems } from '../../lib/sync'
 import { getDb } from '../../lib/db'
+
+const C = {
+  primary: '#238821', primaryDark: '#1d6c1c', primaryMuted: '#dcf5db',
+  soil: '#ca5b21', soilMuted: '#faecda',
+  bg: '#f8f7f4', border: '#e5e2db', text: '#28231d', muted: '#6e6457', subtle: '#9a907e',
+  blue: '#2563eb', blueMuted: '#dbeafe',
+}
 
 type LocalVisit = {
   id: string
@@ -24,13 +31,30 @@ type LocalVisit = {
 type JourneyStay = {
   id: string
   journey_id: string
-  property_id: string
-  property_name: string
-  property_tipo: string
+  property_id: string | null
+  property_name: string | null
+  property_tipo: string | null
+  location_name: string | null
   date: string
-  distance_km: number | null
+  // From travel segment (prev)
+  travel_distance_km: number | null
   travel_minutes: number | null
-  stay_minutes: number | null
+  // From journey totals
+  total_distance_km: number | null
+  total_travel_minutes: number | null
+  total_stay_minutes: number | null
+  average_speed_kmh: number | null
+  // Journey meta
+  objective: string | null
+  client_name: string | null
+  origin_name: string | null
+  vehicle_type: string | null
+  vehicle_plate: string | null
+  km_odometer_start: number | null
+  km_odometer_end: number | null
+  started_at: string | null
+  ended_at: string | null
+  // Segment
   observations: string | null
   work_hours: number | null
   synced_at: string | null
@@ -43,6 +67,7 @@ export default function VisitsScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const currentMonth = format(new Date(), 'yyyy-MM')
 
@@ -51,10 +76,25 @@ export default function VisitsScreen() {
     const data = await db.getAllAsync<JourneyStay>(
       `SELECT
         js.id, js.journey_id, js.property_id,
-        p.name as property_name, p.tipo as property_tipo,
-        j.date, js.distance_km,
+        COALESCE(p.name, js.location_name) as property_name,
+        p.tipo as property_tipo,
+        js.location_name,
+        j.date,
+        prev.distance_km as travel_distance_km,
         prev.duration_minutes as travel_minutes,
-        js.duration_minutes as stay_minutes,
+        j.total_distance_km,
+        j.total_travel_minutes,
+        j.total_stay_minutes,
+        j.average_speed_kmh,
+        j.objective,
+        j.client_name,
+        j.origin_name,
+        j.vehicle_type,
+        j.vehicle_plate,
+        j.km_odometer_start,
+        j.km_odometer_end,
+        j.started_at,
+        j.ended_at,
         js.observations, js.work_hours, j.synced_at
       FROM journey_segments js
       JOIN journeys j ON j.id = js.journey_id
@@ -95,9 +135,23 @@ export default function VisitsScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#238821" />
+        <ActivityIndicator color={C.primary} />
       </View>
     )
+  }
+
+  function formatDuration(min: number | null) {
+    if (min == null || min < 1) return '< 1 min'
+    if (min < 60) return `${Math.round(min)} min`
+    const h = Math.floor(min / 60)
+    const m = Math.round(min % 60)
+    return `${h}h${m > 0 ? String(m).padStart(2, '0') : ''}`
+  }
+
+  function formatTime(iso: string | null) {
+    if (!iso) return '--:--'
+    const d = new Date(iso)
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   }
 
   return (
@@ -116,7 +170,7 @@ export default function VisitsScreen() {
           disabled={syncing}
         >
           <Text style={styles.syncBtnText}>
-            {syncing ? 'Sincronizando…' : pendingCount > 0 ? `Sincronizar (${pendingCount})` : '✓ Sincronizado'}
+            {syncing ? 'Sincronizando...' : pendingCount > 0 ? `Sincronizar (${pendingCount})` : 'Sincronizado'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -128,7 +182,7 @@ export default function VisitsScreen() {
         ].sort((a, b) => (b.date > a.date ? 1 : -1))}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#238821" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyText}>Nenhuma visita este mes.</Text>
@@ -139,44 +193,100 @@ export default function VisitsScreen() {
           if (item._source === 'journey') {
             const js = item as JourneyStay & { _source: 'journey' }
             const isPropria = js.property_tipo === 'propria'
+            const isExpanded = expandedId === js.id
+            const travelKm = js.travel_distance_km ?? js.total_distance_km ?? 0
+            const travelMin = js.travel_minutes ?? js.total_travel_minutes ?? 0
+
             return (
-              <View style={styles.card}>
+              <TouchableOpacity
+                style={styles.card}
+                activeOpacity={0.7}
+                onPress={() => setExpandedId(isExpanded ? null : js.id)}
+              >
                 <View style={styles.cardRow}>
                   <View style={[styles.tipoBadge, isPropria ? styles.badgePropria : styles.badgeCliente]}>
                     <Text style={[styles.tipoText, isPropria ? styles.tipoTextPropria : styles.tipoTextCliente]}>
-                      {isPropria ? 'PROPRIA' : 'CLIENTE'}
+                      {isPropria ? 'PROPRIA' : js.property_tipo ? 'CLIENTE' : 'LOCAL'}
                     </Text>
                   </View>
-                  {!js.synced_at && <View style={styles.pendingDot} />}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {!js.synced_at && <View style={styles.pendingDot} />}
+                    <Text style={styles.journeyBadge}>JORNADA</Text>
+                  </View>
                 </View>
-                <Text style={styles.propertyName}>{js.property_name ?? '—'}</Text>
+
+                <Text style={styles.propertyName}>{js.property_name ?? js.location_name ?? 'Sem local'}</Text>
+
                 <View style={styles.journeyMeta}>
-                  {js.travel_minutes != null && (
+                  {travelKm > 0 && (
                     <Text style={styles.metaChip}>
-                      🚗 {(js.distance_km ?? 0).toFixed(1)} km · {Math.round(js.travel_minutes)} min
+                      {travelKm.toFixed(1)} km
                     </Text>
                   )}
-                  {js.stay_minutes != null && (
+                  {travelMin > 0 && (
                     <Text style={styles.metaChip}>
-                      📍 {Math.round(js.stay_minutes)} min no local
+                      {formatDuration(travelMin)} trajeto
                     </Text>
                   )}
-                  {js.work_hours != null && (
-                    <Text style={styles.metaChip}>⏱ {js.work_hours}h trabalhadas</Text>
+                  {js.work_hours != null && js.work_hours > 0 && (
+                    <Text style={styles.metaChip}>{js.work_hours}h trabalhadas</Text>
+                  )}
+                  {js.objective && (
+                    <Text style={[styles.metaChip, styles.metaChipBlue]}>{js.objective}</Text>
                   )}
                 </View>
+
                 {js.observations ? (
-                  <Text style={styles.obsText}>{js.observations}</Text>
+                  <Text style={styles.obsText} numberOfLines={isExpanded ? undefined : 1}>{js.observations}</Text>
                 ) : null}
+
                 <View style={styles.cardFooter}>
                   <Text style={styles.cardDate}>
                     {format(parseISO(js.date), "dd 'de' MMM", { locale: ptBR })}
                   </Text>
-                  <Text style={styles.journeyBadge}>JORNADA</Text>
+                  <Text style={[styles.cardDate, { color: C.primary }]}>
+                    {formatTime(js.started_at)} - {formatTime(js.ended_at)}
+                  </Text>
                 </View>
-              </View>
+
+                {/* Detalhes expandidos */}
+                {isExpanded && (
+                  <View style={styles.detail}>
+                    <View style={styles.detailDivider} />
+
+                    {js.origin_name && (
+                      <DetailRow label="Origem" value={js.origin_name} />
+                    )}
+                    {js.client_name && (
+                      <DetailRow label="Cliente" value={js.client_name} />
+                    )}
+                    {js.vehicle_type && (
+                      <DetailRow
+                        label="Veiculo"
+                        value={`${js.vehicle_type}${js.vehicle_plate ? ` (${js.vehicle_plate})` : ''}`}
+                      />
+                    )}
+                    {(js.km_odometer_start != null || js.km_odometer_end != null) && (
+                      <DetailRow
+                        label="Odometro"
+                        value={`${js.km_odometer_start ?? '?'} → ${js.km_odometer_end ?? '?'} km`}
+                      />
+                    )}
+                    {js.total_distance_km != null && js.total_distance_km > 0 && (
+                      <DetailRow label="Distancia total" value={`${js.total_distance_km.toFixed(1)} km`} />
+                    )}
+                    {js.total_travel_minutes != null && js.total_travel_minutes > 0 && (
+                      <DetailRow label="Tempo trajeto" value={formatDuration(js.total_travel_minutes)} />
+                    )}
+                    {js.average_speed_kmh != null && js.average_speed_kmh > 0 && (
+                      <DetailRow label="Vel. media" value={`${js.average_speed_kmh.toFixed(0)} km/h`} />
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
             )
           }
+
           // Legacy visit
           const v = item as LocalVisit & { _source: 'visit' }
           const km = v.km_start != null && v.km_end != null
@@ -193,9 +303,7 @@ export default function VisitsScreen() {
                     {v.property_tipo === 'propria' ? 'PROPRIA' : 'CLIENTE'}
                   </Text>
                 </View>
-                {!v.synced_at && (
-                  <View style={styles.pendingDot} />
-                )}
+                {!v.synced_at && <View style={styles.pendingDot} />}
               </View>
               <Text style={styles.propertyName}>{v.property_name ?? '—'}</Text>
               <View style={styles.cardFooter}>
@@ -219,18 +327,27 @@ export default function VisitsScreen() {
   )
 }
 
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f7f4' },
+  container: { flex: 1, backgroundColor: C.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 20, paddingTop: 56, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#e5e2db',
+    borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#28231d' },
-  subtitle: { fontSize: 13, color: '#9a907e', marginTop: 2 },
+  title: { fontSize: 22, fontWeight: '700', color: C.text },
+  subtitle: { fontSize: 13, color: C.subtle, marginTop: 2 },
   syncBtn: {
-    backgroundColor: '#238821', borderRadius: 8,
+    backgroundColor: C.primary, borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 8,
   },
   syncBtnDisabled: { backgroundColor: '#c8c2b5' },
@@ -238,37 +355,47 @@ const styles = StyleSheet.create({
   list: { padding: 16, gap: 12 },
   card: {
     backgroundColor: '#fff', borderRadius: 12, padding: 16,
-    borderWidth: 1, borderColor: '#e5e2db',
+    borderWidth: 1, borderColor: C.border,
   },
   cardRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   tipoBadge: { borderRadius: 99, paddingHorizontal: 8, paddingVertical: 3 },
-  badgePropria: { backgroundColor: '#dcf5db' },
-  badgeCliente: { backgroundColor: '#faecda' },
+  badgePropria: { backgroundColor: C.primaryMuted },
+  badgeCliente: { backgroundColor: C.soilMuted },
   tipoText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  tipoTextPropria: { color: '#1d6c1c' },
+  tipoTextPropria: { color: C.primaryDark },
   tipoTextCliente: { color: '#a8451d' },
   pendingDot: { width: 8, height: 8, borderRadius: 99, backgroundColor: '#f59e0b' },
-  propertyName: { fontSize: 16, fontWeight: '600', color: '#28231d', marginBottom: 8 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between' },
-  cardDate: { fontSize: 13, color: '#9a907e' },
-  cardKm: { fontSize: 13, fontWeight: '600', color: '#238821' },
+  propertyName: { fontSize: 16, fontWeight: '600', color: C.text, marginBottom: 8 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardDate: { fontSize: 13, color: C.subtle },
+  cardKm: { fontSize: 13, fontWeight: '600', color: C.primary },
   journeyMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
   metaChip: {
-    fontSize: 12, color: '#1d6c1c', fontWeight: '500',
-    backgroundColor: '#dcf5db', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
+    fontSize: 12, color: C.primaryDark, fontWeight: '500',
+    backgroundColor: C.primaryMuted, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
   },
-  obsText: { fontSize: 12, color: '#9a907e', fontStyle: 'italic', marginBottom: 8 },
+  metaChipBlue: {
+    color: C.blue, backgroundColor: C.blueMuted,
+  },
+  obsText: { fontSize: 12, color: C.subtle, fontStyle: 'italic', marginBottom: 8 },
   journeyBadge: {
-    fontSize: 9, fontWeight: '700', color: '#2563eb', letterSpacing: 0.5,
-    backgroundColor: '#dbeafe', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2,
+    fontSize: 9, fontWeight: '700', color: C.blue, letterSpacing: 0.5,
+    backgroundColor: C.blueMuted, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2,
   },
+  // Detail expanded
+  detail: { marginTop: 4 },
+  detailDivider: { height: 1, backgroundColor: C.border, marginBottom: 10 },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  detailLabel: { fontSize: 12, color: C.subtle, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
+  detailValue: { fontSize: 13, color: C.text, fontWeight: '500' },
+  // Empty / FAB
   empty: { alignItems: 'center', paddingTop: 60 },
-  emptyText: { fontSize: 16, fontWeight: '600', color: '#6e6457' },
-  emptySubtext: { fontSize: 13, color: '#9a907e', marginTop: 4 },
+  emptyText: { fontSize: 16, fontWeight: '600', color: C.muted },
+  emptySubtext: { fontSize: 13, color: C.subtle, marginTop: 4 },
   fab: {
     position: 'absolute', bottom: 32, right: 24,
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: '#238821',
+    backgroundColor: C.primary,
     justifyContent: 'center', alignItems: 'center',
     shadowColor: '#000', shadowOpacity: 0.2,
     shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
