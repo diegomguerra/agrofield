@@ -11,11 +11,13 @@ import {
   CalendarCheck,
   BarChart3,
   Truck,
+  Route,
   LogOut,
 } from 'lucide-react'
 
 const NAV = [
   { href: '/dashboard', label: 'Início', icon: LayoutDashboard },
+  { href: '/dashboard/jornadas', label: 'Jornadas', icon: Route },
   { href: '/dashboard/propriedades', label: 'Propriedades', icon: MapPin },
   { href: '/dashboard/visitas', label: 'Visitas', icon: CalendarCheck },
   { href: '/dashboard/km-diario', label: 'KM Diário', icon: Truck },

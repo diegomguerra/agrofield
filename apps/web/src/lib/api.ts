@@ -58,6 +58,13 @@ export const dailyLogsApi = {
   create: (data: Partial<DailyLog>) => api.post<DailyLog>('/daily-logs', data),
 }
 
+// ─── Journeys ─────────────────────────────────────────────────────────────────
+export const journeysApi = {
+  list: (params?: { month?: string; collaborator_id?: string }) =>
+    api.get<Journey[]>('/journeys', { params }),
+  get: (id: string) => api.get<JourneyDetail>(`/journeys/${id}`),
+}
+
 // ─── Reports ─────────────────────────────────────────────────────────────────
 export const reportsApi = {
   kmMensal: (month?: string) =>
@@ -172,4 +179,56 @@ export interface RelDiarioRow {
   collaborator_name: string
   property_name: string
   km_rodados: number
+}
+
+export interface Journey {
+  id: string
+  date: string
+  started_at: string
+  ended_at?: string
+  collaborator_id: string
+  collaborator?: { id: string; name: string }
+  total_distance_km: number
+  total_travel_minutes: number
+  total_stay_minutes: number
+  average_speed_kmh: number
+  km_odometer_start?: number
+  km_odometer_end?: number
+  origin_property_id?: string
+  origin_property?: Property
+  origin_name?: string
+  origin_city?: string
+  objective?: string
+  client_name?: string
+  invoice_number?: string
+  invoice_value?: number
+  vehicle_type?: string
+  vehicle_plate?: string
+  fuel_type?: string
+  fuel_price_per_liter?: number
+  observations?: string
+}
+
+export interface JourneySegment {
+  id: string
+  journey_id: string
+  seq: number
+  type: 'travel' | 'stay'
+  started_at: string
+  ended_at?: string
+  duration_minutes?: number
+  start_latitude?: number
+  start_longitude?: number
+  end_latitude?: number
+  end_longitude?: number
+  distance_km?: number
+  property_id?: string
+  property?: Property
+  location_name?: string
+  observations?: string
+  work_hours?: number
+}
+
+export interface JourneyDetail extends Journey {
+  segments: JourneySegment[]
 }

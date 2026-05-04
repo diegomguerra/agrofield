@@ -9,6 +9,7 @@ import { visitsRoutes } from './routes/visits.js'
 import { dailyLogsRoutes } from './routes/dailyLogs.js'
 import { reportsRoutes } from './routes/reports.js'
 import { syncRoutes } from './routes/sync.js'
+import { journeysRoutes } from './routes/journeys.js'
 import { authMiddleware } from './middleware/auth.js'
 import { supabase } from './plugins/supabase.js'
 
@@ -41,6 +42,7 @@ await app.register(visitsRoutes, { prefix: '/visits' })
 await app.register(dailyLogsRoutes, { prefix: '/daily-logs' })
 await app.register(reportsRoutes, { prefix: '/reports' })
 await app.register(syncRoutes, { prefix: '/sync' })
+await app.register(journeysRoutes, { prefix: '/journeys' })
 
 // Health check
 app.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
