@@ -16,8 +16,8 @@ export const journeysRoutes: FastifyPluginAsync = async (fastify) => {
       .from('journeys')
       .select(`
         *,
-        collaborator:users!collaborator_id(id, name),
-        origin_property:properties!origin_property_id(id, name, tipo, city)
+        collaborator:users!collaborator_id(id, name:nome),
+        origin_property:properties!origin_property_id(id, name:nome, tipo, city:cidade)
       `)
       .eq('tenant_id', tenant_id)
       .order('started_at', { ascending: false })
@@ -46,8 +46,8 @@ export const journeysRoutes: FastifyPluginAsync = async (fastify) => {
       .from('journeys')
       .select(`
         *,
-        collaborator:users!collaborator_id(id, name),
-        origin_property:properties!origin_property_id(id, name, tipo, city)
+        collaborator:users!collaborator_id(id, name:nome),
+        origin_property:properties!origin_property_id(id, name:nome, tipo, city:cidade)
       `)
       .eq('id', id)
       .eq('tenant_id', tenant_id)
@@ -59,7 +59,7 @@ export const journeysRoutes: FastifyPluginAsync = async (fastify) => {
       .from('journey_segments')
       .select(`
         *,
-        property:properties!property_id(id, name, tipo, city)
+        property:properties!property_id(id, name:nome, tipo, city:cidade)
       `)
       .eq('journey_id', id)
       .eq('tenant_id', tenant_id)
