@@ -17,6 +17,7 @@
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",
     "axios": "^1.7.0",
+    "babel-preset-expo": "^55.0.20",
     "date-fns": "^3.6.0",
     "expo": "^54.0.34",
     "expo-constants": "~18.0.13",
