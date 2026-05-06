@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AgroField - Jornada (Prototipo)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f7f4; color: #28231d; max-width: 420px; margin: 0 auto; min-height: 100vh; }
+
+  :root {
+    --primary: #238821; --primary-dark: #1d6c1c; --primary-muted: #dcf5db;
+    --soil: #ca5b21; --soil-muted: #faecda;
+    --bg: #f8f7f4; --border: #e5e2db; --text: #28231d; --muted: #6e6457; --subtle: #9a907e;
+    --danger: #dc2626; --blue: #2563eb; --blue-muted: #dbeafe;
+  }
+
+  /* Nav tabs */
+  .tab-bar { display: flex; background: #fff; border-top: 1px solid var(--border); position: fixed; bottom: 0; left: 0; right: 0; max-width: 420px; margin: 0 auto; z-index: 100; height: 60px; }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--subtle); font-size: 10px; font-weight: 600; cursor: pointer; }
+  .tab.active { color: var(--primary); }
+  .tab svg { width: 22px; height: 22px; }
+
+  /* Screen container */
+  .screen { display: none; padding: 20px; padding-bottom: 80px; }
+  .screen.active { display: block; }
+
+  /* Header */
+  .header { margin-bottom: 20px; }
+  .header h1 { font-size: 24px; font-weight: 700; }
+  .header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  /* Section */
+  .section-header { margin-top: 8px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .section-header span { font-size: 11px; font-weight: 700; color: var(--subtle); letter-spacing: 0.8px; text-transform: uppercase; }
+
+  /* Fields */
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .input { width: 100%; background: #fff; border: 1.5px solid var(--border); border-radius: 8px; padding: 12px; font-size: 15px; color: var(--text); outline: none; }
+  .input:focus { border-color: var(--primary); }
+  .input::placeholder { color: var(--subtle); }
+  .selector { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+  .selector .arrow { color: var(--subtle); font-size: 12px; }
+  .textarea { min-height: 70px; resize: vertical; }
+  .row { display: flex; gap: 12px; margin-bottom: 14px; }
+  .row > div { flex: 1; }
+
+  /* Origin mode chips */
+  .mode-chips { display: flex; gap: 8px; margin-bottom: 14px; }
+  .chip { padding: 6px 12px; border-radius: 20px; border: 1.5px solid var(--border); background: #fff; font-size: 13px; color: var(--muted); font-weight: 500; cursor: pointer; }
+  .chip.active { border-color: var(--primary); background: var(--primary-muted); color: var(--primary-dark); }
+
+  /* GPS display */
+  .gps-display { display: flex; align-items: center; gap: 8px; background: #fff; border: 1.5px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+  .gps-display.found { border-color: var(--primary); background: var(--primary-muted); }
+  .gps-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--subtle); flex-shrink: 0; }
+  .gps-display.found .gps-dot { background: var(--primary); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .gps-text { font-size: 13px; color: var(--subtle); }
+  .gps-display.found .gps-text { color: var(--primary-dark); font-weight: 500; }
+  .gps-coords { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: monospace; }
+
+  /* Phase card */
+  .phase-card { border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: center; border: 1px solid; }
+  .phase-card.traveling { background: var(--blue-muted); border-color: var(--blue); }
+  .phase-card.on-site { background: var(--primary-muted); border-color: var(--primary); }
+  .phase-card.done { background: var(--primary-muted); border-color: var(--primary); }
+  .phase-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .phase-label { font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; }
+  .phase-card.traveling .phase-label { color: var(--blue); }
+  .phase-card.on-site .phase-label, .phase-card.done .phase-label { color: var(--primary-dark); }
+  .phase-seg { font-size: 11px; color: var(--subtle); }
+  .timer { font-size: 40px; font-weight: 700; margin: 8px 0; font-variant-numeric: tabular-nums; }
+  .phase-card.traveling .timer { color: var(--blue); }
+  .phase-card.on-site .timer, .phase-card.done .timer { color: var(--primary-dark); }
+  .phase-started { font-size: 13px; color: var(--muted); }
+  .objective-badge { display: inline-block; font-size: 12px; font-weight: 600; color: var(--blue); background: #fff; border-radius: 6px; padding: 4px 10px; margin-top: 8px; }
+  .property-name-big { font-size: 18px; font-weight: 700; color: var(--text); margin-top: 8px; }
+  .travel-info { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .timer-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Partial summary */
+  .partial-summary { background: #fff; border-radius: 8px; padding: 12px; border: 1px solid var(--border); margin-bottom: 16px; }
+  .partial-title { font-size: 10px; font-weight: 700; color: var(--subtle); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; }
+  .partial-text { font-size: 13px; color: var(--muted); font-weight: 500; }
+
+  /* Buttons */
+  .btn { width: 100%; border: none; border-radius: 10px; padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-outline { background: transparent; border: 1.5px solid var(--primary); color: var(--primary); font-weight: 600; font-size: 15px; }
+  .btn-ghost { background: transparent; color: var(--danger); font-size: 14px; font-weight: 500; }
+  .btn-gps { background: var(--blue-muted); color: var(--blue); border: 1.5px solid var(--blue); font-weight: 600; }
+
+  /* Toggle section */
+  .section-toggle { display: flex; align-items: center; gap: 8px; padding: 12px 0; margin-top: 8px; border-top: 1px solid var(--border); cursor: pointer; }
+  .section-toggle span { font-size: 14px; font-weight: 600; color: var(--muted); flex: 1; }
+
+  /* Dropdown */
+  .dropdown { background: #fff; border: 1px solid var(--border); border-radius: 8px; margin-top: 4px; max-height: 280px; overflow-y: auto; display: none; }
+  .dropdown.open { display: block; }
+  .dropdown-item { padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .dropdown-item:hover { background: #f5f4f1; }
+  .dropdown-item .name { font-size: 15px; font-weight: 500; }
+  .dropdown-item .sub { font-size: 12px; color: var(--subtle); margin-top: 2px; }
+  .dropdown-group { font-size: 10px; font-weight: 700; color: var(--subtle); letter-spacing: 0.5px; padding: 10px 12px 4px; background: var(--bg); }
+
+  /* Arrival form */
+  .arrival-form { background: #fff; border-radius: 12px; padding: 16px; border: 1.5px solid var(--primary); margin-bottom: 16px; }
+  .arrival-form h3 { font-size: 14px; font-weight: 700; color: var(--primary-dark); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Info card */
+  .info-card { background: #fff; border-radius: 10px; padding: 14px; border: 1px solid var(--border); margin-bottom: 16px; }
+  .info-row { display: flex; justify-content: space-between; padding: 4px 0; }
+  .info-label { font-size: 13px; color: var(--muted); }
+  .info-value { font-size: 13px; font-weight: 600; color: var(--text); }
+
+  /* Segment card */
+  .segment-card { background: #fff; border-radius: 8px; padding: 12px; border: 1px solid var(--border); margin-bottom: 8px; }
+  .segment-row { display: flex; align-items: center; gap: 8px; }
+  .segment-title { font-size: 15px; font-weight: 600; flex: 1; }
+  .segment-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .segment-obs { font-size: 12px; color: var(--subtle); margin-top: 4px; font-style: italic; }
+
+  /* Totals card */
+  .totals-card { background: #fff; border-radius: 12px; padding: 16px; border: 1.5px solid var(--primary); margin: 16px 0; }
+  .total-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+  .total-label { font-size: 14px; color: var(--muted); }
+  .total-value { font-size: 14px; font-weight: 700; }
+
+  /* Badge */
+  .tipo-badge { border-radius: 8px; padding: 10px; margin-bottom: 14px; font-size: 13px; font-weight: 500; }
+  .badge-propria { background: var(--primary-muted); color: var(--primary-dark); }
+  .badge-cliente { background: var(--soil-muted); color: #a8451d; }
+
+  /* Step indicator */
+  .steps { display: flex; align-items: center; gap: 0; margin-bottom: 20px; padding: 0 10px; }
+  .step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
+  .step-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); background: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--subtle); z-index: 1; }
+  .step.active .step-dot { border-color: var(--primary); background: var(--primary); color: #fff; }
+  .step.done .step-dot { border-color: var(--primary); background: var(--primary-muted); color: var(--primary-dark); }
+  .step-label { font-size: 10px; color: var(--subtle); margin-top: 4px; font-weight: 600; text-transform: uppercase; }
+  .step.active .step-label, .step.done .step-label { color: var(--primary-dark); }
+  .step-line { position: absolute; top: 14px; left: 50%; width: 100%; height: 2px; background: var(--border); z-index: 0; }
+  .step.done .step-line { background: var(--primary); }
+  .step:last-child .step-line { display: none; }
+
+  /* GPS inline button */
+  .gps-inline-btn { width: 48px; min-height: 46px; border-radius: 8px; border: 1.5px solid var(--blue); background: var(--blue-muted); color: var(--blue); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all 0.2s; }
+  .gps-inline-btn.found { border-color: var(--primary); background: var(--primary); color: #fff; }
+  .gps-coords-inline { font-size: 11px; color: var(--primary-dark); font-family: monospace; margin-top: 4px; padding-left: 56px; font-weight: 500; }
+
+  /* Transition */
+  .screen { animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* State label */
+  .state-label { text-align: center; font-size: 10px; color: var(--subtle); margin-bottom: 10px; letter-spacing: 1px; text-transform: uppercase; background: var(--border); border-radius: 4px; padding: 4px 8px; display: inline-block; }
+  .state-bar { text-align: center; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- TELA 1: IDLE — Iniciar Jornada                                -->
+<!-- ============================================================ -->
+<div class="screen active" id="screen-idle">
+  <div class="header">
+    <h1>Jornada</h1>
+    <p>Registre seu dia: deslocamentos e paradas</p>
+  </div>
+
+  <div class="steps">
+    <div class="step active">
+      <div class="step-dot">1</div>
+      <span class="step-label">Partida</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step">
+      <div class="step-dot">2</div>
+      <span class="step-label">Trajeto</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step">
+      <div class="step-dot">3</div>
+      <span class="step-label">Chegada</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step">
+      <div class="step-dot">4</div>
+      <span class="step-label">Resumo</span>
+    </div>
+  </div>
+
+  <!-- GPS -->
+  <div class="section-header"><span>Ponto de partida</span></div>
+
+  <div class="gps-display" id="idle-gps">
+    <div class="gps-dot"></div>
+    <div>
+      <div class="gps-text">Clique para capturar GPS</div>
+      <div class="gps-coords" id="idle-gps-coords"></div>
+    </div>
+  </div>
+  <button class="btn btn-gps" style="margin-bottom: 16px;" onclick="captureGPS('idle')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+    Capturar GPS
+  </button>
+
+  <!-- Origin mode -->
+  <div class="mode-chips">
+    <div class="chip active" onclick="setOriginMode('gps', this)">GPS atual</div>
+    <div class="chip" onclick="setOriginMode('property', this)">Propriedade</div>
+    <div class="chip" onclick="setOriginMode('manual', this)">Digitar local</div>
+  </div>
+
+  <div id="origin-property" style="display:none">
+    <div class="field">
+      <div class="input selector" onclick="toggleDropdown('origin-dropdown')">
+        <span style="color: var(--subtle)">Selecionar propriedade...</span>
+        <span class="arrow">&#9662;</span>
+      </div>
+      <div class="dropdown" id="origin-dropdown">
+        <div class="dropdown-group">FAZENDAS PROPRIAS</div>
+        <div class="dropdown-item" onclick="selectOrigin(this, 'Fazenda Sao Joao')"><div class="name">&#127969; Fazenda Sao Joao</div><div class="sub">Campinas - SP</div></div>
+        <div class="dropdown-item" onclick="selectOrigin(this, 'Fazenda Boa Vista')"><div class="name">&#127969; Fazenda Boa Vista</div><div class="sub">Piracicaba - SP</div></div>
+        <div class="dropdown-group">CLIENTES</div>
+        <div class="dropdown-item" onclick="selectOrigin(this, 'Agropec. Silva')"><div class="name">&#128100; Agropec. Silva</div><div class="sub">Limeira - SP</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="origin-manual" style="display:none">
+    <div class="field">
+      <label>Nome do local</label>
+      <input class="input" placeholder="Ex: Escritorio, Casa, Hotel...">
+    </div>
+    <div class="field">
+      <label>Cidade</label>
+      <input class="input" placeholder="Ex: Campinas - SP">
+    </div>
+  </div>
+
+  <!-- Objective -->
+  <div class="section-header"><span>Informacoes da jornada</span></div>
+
+  <div class="field">
+    <label>Objetivo</label>
+    <div class="input selector" onclick="toggleDropdown('obj-dropdown')">
+      <span style="color: var(--subtle)">Selecionar objetivo...</span>
+      <span class="arrow">&#9662;</span>
+    </div>
+    <div class="dropdown" id="obj-dropdown">
+      <div class="dropdown-item" onclick="selectObj(this)"><div class="name">Entrega de mercadorias</div></div>
+      <div class="dropdown-item" onclick="selectObj(this)"><div class="name">Entrega de sementes</div></div>
+      <div class="dropdown-item" onclick="selectObj(this)"><div class="name">Entrega de semen</div></div>
+      <div class="dropdown-item" onclick="selectObj(this)"><div class="name">Visita de prospeccao</div></div>
+      <div class="dropdown-item" onclick="selectObj(this)"><div class="name">Visita tecnica</div></div>
+      <div class="dropdown-item" onclick="selectObj(this)"><div class="name">Palestra</div></div>
+      <div class="dropdown-item" onclick="selectObj(this)"><div class="name">Treinamento</div></div>
+      <div class="dropdown-item" onclick="selectObj(this)"><div class="name">Outro</div></div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Nome do cliente (opcional)</label>
+    <input class="input" placeholder="Ex: Fazenda Boa Vista Ltda">
+  </div>
+
+  <div class="row">
+    <div>
+      <label style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:0.3px">N. da nota</label>
+      <input class="input" placeholder="000000" type="number">
+    </div>
+    <div>
+      <label style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:0.3px">Valor (R$)</label>
+      <input class="input" placeholder="0,00" type="number">
+    </div>
+  </div>
+
+  <!-- Vehicle toggle -->
+  <div class="section-toggle" onclick="document.getElementById('vehicle-section').style.display = document.getElementById('vehicle-section').style.display === 'none' ? 'block' : 'none'">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M5 11V7a2 2 0 012-2h10a2 2 0 012 2v4"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg>
+    <span>Veiculo e combustivel</span>
+    <span class="arrow" style="color: var(--subtle)">&#9662;</span>
+  </div>
+
+  <div id="vehicle-section" style="display:none; margin-bottom: 8px;">
+    <div class="row">
+      <div>
+        <label style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:6px; display:block; text-transform:uppercase">Tipo</label>
+        <select class="input"><option>Selecionar...</option><option>Carro</option><option>Caminhonete</option><option>Caminhao</option><option>Moto</option></select>
+      </div>
+      <div>
+        <label style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:6px; display:block; text-transform:uppercase">Placa</label>
+        <input class="input" placeholder="ABC-1234" style="text-transform: uppercase">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:6px; display:block; text-transform:uppercase">Combustivel</label>
+        <select class="input"><option>Selecionar...</option><option>Gasolina</option><option>Etanol</option><option>Diesel</option><option>Flex</option></select>
+      </div>
+      <div>
+        <label style="font-size:12px; font-weight:600; color:var(--muted); margin-bottom:6px; display:block; text-transform:uppercase">Preco/litro</label>
+        <input class="input" placeholder="6,50" type="number">
+      </div>
+    </div>
+  </div>
+
+  <!-- Odometer -->
+  <div class="field" style="margin-top: 16px">
+    <label>KM odometro inicial (opcional)</label>
+    <input class="input" placeholder="Ex: 45230" type="number">
+  </div>
+
+  <button class="btn btn-primary" onclick="goTo('screen-traveling')">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+    Iniciar Jornada
+  </button>
+</div>
+
+<!-- ============================================================ -->
+<!-- TELA 2: TRAVELING — Em deslocamento                           -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-traveling">
+  <div class="steps">
+    <div class="step done">
+      <div class="step-dot">&#10003;</div>
+      <span class="step-label">Partida</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step active">
+      <div class="step-dot">2</div>
+      <span class="step-label">Trajeto</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step">
+      <div class="step-dot">3</div>
+      <span class="step-label">Chegada</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step">
+      <div class="step-dot">4</div>
+      <span class="step-label">Resumo</span>
+    </div>
+  </div>
+
+  <div class="phase-card traveling">
+    <div class="phase-row">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M5 11V7a2 2 0 012-2h10a2 2 0 012 2v4"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg>
+      <span class="phase-label">EM DESLOCAMENTO</span>
+    </div>
+    <div class="objective-badge">Visita tecnica</div>
+    <div class="timer" id="travel-timer">00:23:45</div>
+    <div class="phase-started">Partida as 08:15</div>
+  </div>
+
+  <!-- GPS coords -->
+  <div class="gps-display found" id="travel-gps">
+    <div class="gps-dot"></div>
+    <div>
+      <div class="gps-text">GPS ativo — rastreando</div>
+      <div class="gps-coords">-22.907104, -47.063240 (~12m)</div>
+    </div>
+  </div>
+
+  <!-- Partial summary -->
+  <div class="partial-summary">
+    <div class="partial-title">Resumo parcial</div>
+    <div class="partial-text">0.0 km | 0 paradas | 00:23 total</div>
+  </div>
+
+  <!-- CTA: Encerrar Jornada (unico botao principal) -->
+  <button class="btn btn-primary" onclick="goTo('screen-arrival')">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+    Encerrar Jornada
+  </button>
+
+  <button class="btn btn-ghost" onclick="goTo('screen-idle')">Cancelar jornada</button>
+</div>
+
+<!-- ============================================================ -->
+<!-- TELA 3: ARRIVAL — Registrar chegada (apos encerrar)           -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-arrival">
+  <div class="steps">
+    <div class="step done">
+      <div class="step-dot">&#10003;</div>
+      <span class="step-label">Partida</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step done">
+      <div class="step-dot">&#10003;</div>
+      <span class="step-label">Trajeto</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step active">
+      <div class="step-dot">3</div>
+      <span class="step-label">Chegada</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step">
+      <div class="step-dot">4</div>
+      <span class="step-label">Resumo</span>
+    </div>
+  </div>
+
+  <div class="phase-card on-site">
+    <div class="phase-row">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--primary-dark)"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <span class="phase-label">REGISTRAR CHEGADA</span>
+    </div>
+    <div class="travel-info" style="margin-top: 8px">Deslocamento: 12.3 km em 24 min</div>
+    <div class="timer" style="font-size: 28px; color: var(--primary-dark)">00:23:45</div>
+    <div class="timer-label">tempo de viagem</div>
+  </div>
+
+  <div class="arrival-form">
+    <h3>Ponto de chegada</h3>
+
+    <!-- Propriedade com GPS inline a esquerda -->
+    <div class="field">
+      <label>Propriedade / Estabelecimento</label>
+      <div style="display: flex; gap: 8px; align-items: stretch;">
+        <button class="gps-inline-btn" id="arrival-gps-btn" onclick="captureGPS('arrival')" title="Capturar GPS">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+        </button>
+        <div style="flex: 1;">
+          <div class="input selector" onclick="toggleDropdown('arrival-prop-dropdown')">
+            <span style="color: var(--subtle)" id="arrival-prop-text">Selecionar propriedade cadastrada...</span>
+            <span class="arrow">&#9662;</span>
+          </div>
+        </div>
+      </div>
+      <div class="gps-coords-inline" id="arrival-gps-coords" style="display:none"></div>
+    </div>
+      <div class="dropdown" id="arrival-prop-dropdown">
+        <div class="dropdown-group">FAZENDAS PROPRIAS</div>
+        <div class="dropdown-item" onclick="selectArrivalProp(this, 'Fazenda Sao Joao')"><div class="name">&#127969; Fazenda Sao Joao</div><div class="sub">Campinas - SP | ~350m de voce</div></div>
+        <div class="dropdown-item" onclick="selectArrivalProp(this, 'Fazenda Boa Vista')"><div class="name">&#127969; Fazenda Boa Vista</div><div class="sub">Piracicaba - SP</div></div>
+        <div class="dropdown-group">CLIENTES</div>
+        <div class="dropdown-item" onclick="selectArrivalProp(this, 'Agropec. Silva')"><div class="name">&#128100; Agropec. Silva</div><div class="sub">Limeira - SP</div></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Ou digite o nome do local</label>
+      <input class="input" placeholder="Ex: Cooperativa, Posto, Fazenda nova..." id="arrival-manual-name">
+    </div>
+
+    <!-- Observations -->
+    <div class="field">
+      <label>Observacoes</label>
+      <textarea class="input textarea" placeholder="Anotacoes sobre esta visita..."></textarea>
+    </div>
+
+    <!-- Tipo badge (aparece quando seleciona propriedade) -->
+    <div class="tipo-badge badge-propria" id="arrival-tipo-badge" style="display:none">
+      &#127969; Fazenda Propria — horas e insumos
+    </div>
+
+    <div class="field" id="arrival-work-hours" style="display:none">
+      <label>Horas trabalhadas</label>
+      <input class="input" placeholder="Ex: 8" type="number">
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="goTo('screen-summary')">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+    Salvar Jornada
+  </button>
+
+  <button class="btn btn-ghost" onclick="goTo('screen-traveling')">Voltar ao trajeto</button>
+</div>
+
+<!-- ============================================================ -->
+<!-- TELA 4: SUMMARY — Resumo final                               -->
+<!-- ============================================================ -->
+<div class="screen" id="screen-summary">
+  <div class="steps">
+    <div class="step done">
+      <div class="step-dot">&#10003;</div>
+      <span class="step-label">Partida</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step done">
+      <div class="step-dot">&#10003;</div>
+      <span class="step-label">Trajeto</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step done">
+      <div class="step-dot">&#10003;</div>
+      <span class="step-label">Chegada</span>
+      <div class="step-line"></div>
+    </div>
+    <div class="step active">
+      <div class="step-dot">4</div>
+      <span class="step-label">Resumo</span>
+    </div>
+  </div>
+
+  <div class="phase-card done">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="var(--primary-dark)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+    <span class="phase-label" style="color: var(--primary-dark); margin-top: 8px; display: block;">JORNADA CONCLUIDA</span>
+    <div class="phase-started" style="margin-top: 4px">29/04/2026</div>
+    <div class="objective-badge" style="background: var(--primary-muted); color: var(--primary-dark);">Visita tecnica</div>
+  </div>
+
+  <!-- Info -->
+  <div class="info-card">
+    <div class="info-row"><span class="info-label">Origem</span><span class="info-value">GPS — Campinas - SP</span></div>
+    <div class="info-row"><span class="info-label">Destino</span><span class="info-value">Fazenda Sao Joao</span></div>
+    <div class="info-row"><span class="info-label">Cliente</span><span class="info-value">Agropec. Silva Ltda</span></div>
+    <div class="info-row"><span class="info-label">Nota</span><span class="info-value">#004521</span></div>
+    <div class="info-row"><span class="info-label">Valor</span><span class="info-value">R$ 2.450,00</span></div>
+    <div class="info-row"><span class="info-label">Veiculo</span><span class="info-value">Caminhonete — ABC-1234</span></div>
+    <div class="info-row"><span class="info-label">Combustivel</span><span class="info-value">Diesel (R$ 6,50/l)</span></div>
+  </div>
+
+  <!-- Segments -->
+  <div class="segment-card">
+    <div class="segment-row">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M5 11V7a2 2 0 012-2h10a2 2 0 012 2v4"/></svg>
+      <span class="segment-title">Deslocamento</span>
+    </div>
+    <div class="segment-meta">12.3 km | 24 min</div>
+  </div>
+
+  <div class="segment-card">
+    <div class="segment-row">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--primary)"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      <span class="segment-title">Fazenda Sao Joao</span>
+    </div>
+    <div class="segment-meta">Chegada registrada</div>
+    <div class="segment-obs">Entrega realizada, tudo OK.</div>
+  </div>
+
+  <!-- Totals -->
+  <div class="totals-card">
+    <div class="total-row"><span class="total-label">Total KM</span><span class="total-value">12.3 km</span></div>
+    <div class="total-row"><span class="total-label">Tempo de viagem</span><span class="total-value">24 min</span></div>
+    <div class="total-row"><span class="total-label">Vel. media</span><span class="total-value">30.8 km/h</span></div>
+    <div class="total-row"><span class="total-label">Combustivel est.</span><span class="total-value">R$ 8,00</span></div>
+  </div>
+
+  <!-- Odometer -->
+  <div class="field">
+    <label>KM odometro final (opcional)</label>
+    <input class="input" placeholder="Ex: 45312" type="number">
+  </div>
+
+  <button class="btn btn-primary" onclick="alert('Jornada salva com sucesso!'); goTo('screen-idle')">
+    Confirmar e Salvar
+  </button>
+
+  <button class="btn btn-ghost" onclick="goTo('screen-idle')">Descartar</button>
+</div>
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <div class="tab active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0v-6a1 1 0 011-1h2a1 1 0 011 1v6m-6 0h6"/></svg>
+    Jornada
+  </div>
+  <div class="tab">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    Visitas
+  </div>
+  <div class="tab">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+    Propriedades
+  </div>
+</div>
+
+<script>
+  // Navigation
+  function goTo(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  // GPS capture simulation
+  function captureGPS(context) {
+    const lat = -22.907104 + (Math.random() * 0.01 - 0.005);
+    const lng = -47.063240 + (Math.random() * 0.01 - 0.005);
+    const acc = Math.round(5 + Math.random() * 20);
+
+    if (context === 'idle') {
+      const el = document.getElementById('idle-gps');
+      el.classList.add('found');
+      el.querySelector('.gps-text').textContent = 'GPS capturado';
+      document.getElementById('idle-gps-coords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)} (~${acc}m)`;
+    } else if (context === 'arrival') {
+      const btn = document.getElementById('arrival-gps-btn');
+      btn.classList.add('found');
+      const coordsEl = document.getElementById('arrival-gps-coords');
+      coordsEl.style.display = 'block';
+      coordsEl.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)} (~${acc}m)`;
+    }
+  }
+
+  // Origin mode
+  function setOriginMode(mode, el) {
+    document.querySelectorAll('.mode-chips .chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('origin-property').style.display = mode === 'property' ? 'block' : 'none';
+    document.getElementById('origin-manual').style.display = mode === 'manual' ? 'block' : 'none';
+  }
+
+  // Dropdowns
+  function toggleDropdown(id) {
+    const dd = document.getElementById(id);
+    dd.classList.toggle('open');
+  }
+
+  function selectOrigin(el, name) {
+    const selector = el.closest('.field').querySelector('.selector span');
+    selector.textContent = name;
+    selector.style.color = 'var(--text)';
+    el.closest('.dropdown').classList.remove('open');
+  }
+
+  function selectObj(el) {
+    const name = el.querySelector('.name').textContent;
+    const selector = el.closest('.field').querySelector('.selector span');
+    selector.textContent = name;
+    selector.style.color = 'var(--text)';
+    el.closest('.dropdown').classList.remove('open');
+  }
+
+  function selectArrivalProp(el, name) {
+    const textEl = document.getElementById('arrival-prop-text');
+    textEl.textContent = name;
+    textEl.style.color = 'var(--text)';
+    el.closest('.dropdown').classList.remove('open');
+
+    // Show tipo badge
+    const badge = document.getElementById('arrival-tipo-badge');
+    const hours = document.getElementById('arrival-work-hours');
+    if (name.includes('Fazenda')) {
+      badge.style.display = 'block';
+      badge.className = 'tipo-badge badge-propria';
+      badge.textContent = '🏠 Fazenda Propria — horas e insumos';
+      hours.style.display = 'block';
+    } else {
+      badge.style.display = 'block';
+      badge.className = 'tipo-badge badge-cliente';
+      badge.textContent = '👤 Cliente — servicos e vendas';
+      hours.style.display = 'none';
+    }
+  }
+
+  // Timer simulation
+  let timerSec = 1425; // 23:45
+  setInterval(() => {
+    timerSec++;
+    const h = Math.floor(timerSec / 3600);
+    const m = Math.floor((timerSec % 3600) / 60);
+    const s = timerSec % 60;
+    const pad = n => String(n).padStart(2, '0');
+    const str = h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+    document.getElementById('travel-timer').textContent = str;
+  }, 1000);
+</script>
+
+</body>
+</html>
