@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { journeysApi } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -24,7 +24,27 @@ export default function JornadasPage() {
 
   const { data: journeys, isLoading } = useQuery({
     queryKey: ['journeys', month],
-    queryFn: () => journeysApi.list({ month }).then((r) => r.data),
+    queryFn: async () => {
+      let query = supabase
+        .from('journeys')
+        .select(`
+          *,
+          collaborator:users!collaborator_id(id, name:nome),
+          origin_property:properties!origin_property_id(id, name:nome, tipo, city:cidade)
+        `)
+        .order('started_at', { ascending: false })
+        .limit(200)
+
+      if (month) {
+        query = query
+          .gte('date', `${month}-01`)
+          .lte('date', `${month}-31`)
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+      return data as any[]
+    },
   })
 
   const totalKm = journeys?.reduce((a, j) => a + (j.total_distance_km ?? 0), 0) ?? 0

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { journeysApi } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -34,7 +34,29 @@ export default function JourneyDetailPage() {
 
   const { data: journey, isLoading } = useQuery({
     queryKey: ['journey', id],
-    queryFn: () => journeysApi.get(id).then((r) => r.data),
+    queryFn: async () => {
+      const { data: j, error } = await supabase
+        .from('journeys')
+        .select(`
+          *,
+          collaborator:users!collaborator_id(id, name:nome),
+          origin_property:properties!origin_property_id(id, name:nome, tipo, city:cidade)
+        `)
+        .eq('id', id)
+        .single()
+      if (error) throw error
+
+      const { data: segments } = await supabase
+        .from('journey_segments')
+        .select(`
+          *,
+          property:properties!property_id(id, name:nome, tipo, city:cidade)
+        `)
+        .eq('journey_id', id)
+        .order('seq', { ascending: true })
+
+      return { ...j, segments: segments ?? [] } as any
+    },
     enabled: !!id,
   })
 
