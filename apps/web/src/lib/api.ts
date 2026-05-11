@@ -1,82 +1,302 @@
-import axios from 'axios'
+import { supabase } from './supabase'
 
-export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001',
-  headers: { 'Content-Type': 'application/json' },
-})
-
-// Injeta token automaticamente
-api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('af_token')
-    if (token) config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
-// Redireciona para /login em 401
-api.interceptors.response.use(
-  (res) => res,
-  (err) => {
-    if (err.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('af_token')
-      window.location.href = '/login'
-    }
-    return Promise.reject(err)
-  }
-)
+type Resp<T> = { data: T }
+const wrap = <T,>(data: T): Resp<T> => ({ data })
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 export const authApi = {
-  login: (email: string, password: string) =>
-    api.post<{ token: string; user: { id: string; name: string; role: string } }>(
-      '/auth/login',
-      { email, password }
-    ),
+  login: async (email: string, password: string) => {
+    const { data: auth, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error || !auth.user) throw new Error(error?.message ?? 'Credenciais inválidas')
+
+    const { data: user, error: userErr } = await supabase
+      .from('users')
+      .select('id, nome, perfil, tenant_id')
+      .eq('id', auth.user.id)
+      .single()
+    if (userErr || !user) throw new Error('Usuário não encontrado')
+
+    return wrap({
+      token: auth.session?.access_token ?? '',
+      user: {
+        id: user.id,
+        name: user.nome as string,
+        role: user.perfil as string,
+        tenant_id: user.tenant_id as string,
+      },
+    })
+  },
 }
 
 // ─── Properties ──────────────────────────────────────────────────────────────
+const PROPERTY_COLS = 'id, name:nome, tipo, city:cidade, area_hectares, tenant_id'
+
 export const propertiesApi = {
-  list: () => api.get<Property[]>('/properties'),
-  listProprias: () => api.get<Property[]>('/properties/proprias'),
-  listClientes: () => api.get<Property[]>('/properties/clientes'),
-  get: (id: string) => api.get<Property>(`/properties/${id}`),
+  list: async () => {
+    const { data, error } = await supabase
+      .from('properties')
+      .select(PROPERTY_COLS)
+      .order('nome')
+    if (error) throw error
+    return wrap((data ?? []) as Property[])
+  },
+  listProprias: async () => {
+    const { data, error } = await supabase
+      .from('properties')
+      .select(PROPERTY_COLS)
+      .eq('tipo', 'propria')
+      .order('nome')
+    if (error) throw error
+    return wrap((data ?? []) as Property[])
+  },
+  listClientes: async () => {
+    const { data, error } = await supabase
+      .from('properties')
+      .select(PROPERTY_COLS)
+      .eq('tipo', 'cliente')
+      .order('nome')
+    if (error) throw error
+    return wrap((data ?? []) as Property[])
+  },
+  get: async (id: string) => {
+    const { data, error } = await supabase
+      .from('properties')
+      .select(PROPERTY_COLS)
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    return wrap(data as Property)
+  },
 }
 
 // ─── Visits ──────────────────────────────────────────────────────────────────
+const VISIT_LIST_SELECT = `
+  *,
+  property:properties(id, name:nome, tipo, city:cidade)
+`
+
+const VISIT_DETAIL_SELECT = `
+  *,
+  property:properties(id, name:nome, tipo, city:cidade),
+  visit_services(*, service_type:service_types(name:nome, tipo_custo)),
+  visit_sales(*, product:products(name:nome, unit:unidade)),
+  work_hours(*)
+`
+
 export const visitsApi = {
-  list: (params?: { property_id?: string; date_from?: string; date_to?: string }) =>
-    api.get<Visit[]>('/visits', { params }),
-  get: (id: string) => api.get<Visit>(`/visits/${id}`),
-  create: (data: CreateVisitPayload) => api.post<Visit>('/visits', data),
+  list: async (params?: { property_id?: string; date_from?: string; date_to?: string }) => {
+    let q = supabase
+      .from('visits')
+      .select(VISIT_LIST_SELECT)
+      .order('date', { ascending: false })
+    if (params?.property_id) q = q.eq('property_id', params.property_id)
+    if (params?.date_from) q = q.gte('date', params.date_from)
+    if (params?.date_to) q = q.lte('date', params.date_to)
+    const { data, error } = await q
+    if (error) throw error
+    return wrap((data ?? []) as Visit[])
+  },
+  get: async (id: string) => {
+    const { data, error } = await supabase
+      .from('visits')
+      .select(VISIT_DETAIL_SELECT)
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    return wrap(data as Visit)
+  },
+  create: async (payload: CreateVisitPayload) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Não autenticado')
+
+    const { data: me } = await supabase
+      .from('users').select('tenant_id').eq('id', user.id).single()
+    if (!me) throw new Error('Usuário sem tenant')
+
+    const { data: property } = await supabase
+      .from('properties').select('id, tipo').eq('id', payload.property_id).single()
+    if (!property) throw new Error('Propriedade não encontrada')
+
+    const { data: visit, error: visitErr } = await supabase
+      .from('visits')
+      .insert({
+        tenant_id: me.tenant_id,
+        property_id: payload.property_id,
+        collaborator_id: payload.collaborator_id,
+        vehicle_id: payload.vehicle_id,
+        date: payload.date,
+        km_start: payload.km_start,
+        km_end: payload.km_end,
+        observations: payload.observations,
+      })
+      .select()
+      .single()
+    if (visitErr || !visit) throw visitErr
+
+    if (property.tipo === 'propria') {
+      if (payload.work_hours) {
+        await supabase.from('work_hours').insert({
+          visit_id: visit.id,
+          collaborator_id: payload.collaborator_id,
+          tenant_id: me.tenant_id,
+          hours: payload.work_hours,
+          date: payload.date,
+        })
+      }
+      if (payload.inputs_used?.length) {
+        await supabase.from('property_inputs').insert(
+          payload.inputs_used.map((i) => ({
+            tenant_id: me.tenant_id,
+            property_id: payload.property_id,
+            visit_id: visit.id,
+            product_id: i.product_id,
+            quantity: i.quantity,
+            unit: i.unit,
+            date: payload.date,
+          }))
+        )
+      }
+    } else {
+      if (payload.services?.length) {
+        await supabase.from('visit_services').insert(
+          payload.services.map((s) => ({
+            visit_id: visit.id,
+            tenant_id: me.tenant_id,
+            service_type_id: s.service_type_id,
+            quantity: s.quantity,
+            unit_price: s.unit_price,
+            observations: s.observations,
+          }))
+        )
+      }
+      if (payload.sales?.length) {
+        await supabase.from('visit_sales').insert(
+          payload.sales.map((s) => ({
+            visit_id: visit.id,
+            tenant_id: me.tenant_id,
+            product_id: s.product_id,
+            quantity: s.quantity,
+            unit_price: s.unit_price,
+          }))
+        )
+      }
+    }
+
+    return wrap(visit as Visit)
+  },
 }
 
-// ─── Daily Logs ───────────────────────────────────────────────────────────────
+// ─── Daily Logs ──────────────────────────────────────────────────────────────
 export const dailyLogsApi = {
-  list: (params?: { month?: string; collaborator_id?: string }) =>
-    api.get<DailyLog[]>('/daily-logs', { params }),
-  create: (data: Partial<DailyLog>) => api.post<DailyLog>('/daily-logs', data),
+  list: async (params?: { month?: string; collaborator_id?: string }) => {
+    let q = supabase.from('daily_logs').select('*').order('date', { ascending: false })
+    if (params?.collaborator_id) q = q.eq('collaborator_id', params.collaborator_id)
+    if (params?.month) {
+      q = q.gte('date', `${params.month}-01`).lte('date', `${params.month}-31`)
+    }
+    const { data, error } = await q
+    if (error) throw error
+    return wrap((data ?? []) as DailyLog[])
+  },
+  create: async (payload: Partial<DailyLog>) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Não autenticado')
+    const { data: me } = await supabase.from('users').select('tenant_id').eq('id', user.id).single()
+    if (!me) throw new Error('Usuário sem tenant')
+    const { data, error } = await supabase
+      .from('daily_logs')
+      .insert({ ...payload, tenant_id: me.tenant_id })
+      .select()
+      .single()
+    if (error) throw error
+    return wrap(data as DailyLog)
+  },
 }
 
 // ─── Journeys ─────────────────────────────────────────────────────────────────
 export const journeysApi = {
-  list: (params?: { month?: string; collaborator_id?: string }) =>
-    api.get<Journey[]>('/journeys', { params }),
-  get: (id: string) => api.get<JourneyDetail>(`/journeys/${id}`),
+  list: async (params?: { month?: string; collaborator_id?: string }) => {
+    let q = supabase
+      .from('journeys')
+      .select(`
+        *,
+        collaborator:users!collaborator_id(id, name:nome),
+        origin_property:properties!origin_property_id(id, name:nome, tipo, city:cidade)
+      `)
+      .order('started_at', { ascending: false })
+    if (params?.collaborator_id) q = q.eq('collaborator_id', params.collaborator_id)
+    if (params?.month) {
+      q = q.gte('date', `${params.month}-01`).lte('date', `${params.month}-31`)
+    }
+    const { data, error } = await q
+    if (error) throw error
+    return wrap((data ?? []) as Journey[])
+  },
+  get: async (id: string) => {
+    const { data, error } = await supabase
+      .from('journeys')
+      .select(`
+        *,
+        collaborator:users!collaborator_id(id, name:nome),
+        origin_property:properties!origin_property_id(id, name:nome, tipo, city:cidade),
+        segments:journey_segments(*, property:properties(id, name:nome, tipo, city:cidade))
+      `)
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    return wrap(data as JourneyDetail)
+  },
 }
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
+// The views use Portuguese column names; we alias them to match the dashboard's
+// existing TypeScript shape (total_km, property_name, tipo). vw_visitas_por_fazenda
+// does NOT have a 'mes' column — the `month` filter is ignored there (all-time totals).
 export const reportsApi = {
-  kmMensal: (month?: string) =>
-    api.get<KmMensalRow[]>('/reports/km-mensal', { params: { month } }),
-  kmPorTipoCusto: (month?: string) =>
-    api.get<KmTipoCustoRow[]>('/reports/km-por-tipo-custo', { params: { month } }),
-  custoFazendasProprias: (month?: string) =>
-    api.get<CustoFazendaRow[]>('/reports/custo-fazendas-proprias', { params: { month } }),
-  visitasPorFazenda: (month?: string) =>
-    api.get<VisitasFazendaRow[]>('/reports/visitas-por-fazenda', { params: { month } }),
-  diario: (date: string) =>
-    api.get<RelDiarioRow[]>('/reports/diario', { params: { date } }),
+  kmMensal: async (month?: string) => {
+    let q = supabase
+      .from('vw_km_mensal')
+      .select('mes, tenant_id, total_km:km_total, total_visitas, total_dias')
+      .order('mes', { ascending: false })
+    if (month) q = q.eq('mes', month)
+    const { data, error } = await q
+    if (error) throw error
+    return wrap((data ?? []) as KmMensalRow[])
+  },
+  kmPorTipoCusto: async (month?: string) => {
+    let q = supabase
+      .from('vw_km_por_tipo_custo')
+      .select('mes, tenant_id, tipo_custo, total_km:km_estimado, total_visitas')
+    if (month) q = q.eq('mes', month)
+    const { data, error } = await q
+    if (error) throw error
+    return wrap((data ?? []) as KmTipoCustoRow[])
+  },
+  custoFazendasProprias: async (month?: string) => {
+    let q = supabase
+      .from('vw_custo_fazendas_proprias')
+      .select('mes, tenant_id, property_id, property_name:fazenda, total_horas:total_minutos, total_visitas')
+    if (month) q = q.eq('mes', month)
+    const { data, error } = await q
+    if (error) throw error
+    return wrap((data ?? []) as CustoFazendaRow[])
+  },
+  visitasPorFazenda: async (_month?: string) => {
+    const { data, error } = await supabase
+      .from('vw_visitas_por_fazenda')
+      .select('property_id, property_name:fazenda, tipo:tipo_fazenda, total_visitas')
+    if (error) throw error
+    const rows = (data ?? []).map((r: any) => ({ mes: '', ...r })) as VisitasFazendaRow[]
+    return wrap(rows)
+  },
+  diario: async (date: string) => {
+    const { data, error } = await supabase
+      .from('vw_relatorio_diario')
+      .select('date:data, collaborator_name:colaborador, km_rodados:km_total, status, total_visitas, valor_vendas')
+      .eq('data', date)
+    if (error) throw error
+    return wrap((data ?? []) as RelDiarioRow[])
+  },
 }
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -150,12 +370,14 @@ export interface KmMensalRow {
   tenant_id: string
   total_km: number
   total_visitas: number
+  total_dias?: number
 }
 
 export interface KmTipoCustoRow {
   mes: string
   tipo_custo: string
   total_km: number
+  total_visitas?: number
 }
 
 export interface CustoFazendaRow {
@@ -163,7 +385,7 @@ export interface CustoFazendaRow {
   property_id: string
   property_name: string
   total_horas: number
-  total_insumos: number
+  total_visitas?: number
 }
 
 export interface VisitasFazendaRow {
@@ -177,7 +399,7 @@ export interface VisitasFazendaRow {
 export interface RelDiarioRow {
   date: string
   collaborator_name: string
-  property_name: string
+  property_name?: string
   km_rodados: number
 }
 
