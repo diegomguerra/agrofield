@@ -1,1 +1,1 @@
-export const API_URL = 'https://agrofieldapi-production.up.railway.app'
+export const API_URL = 'https://api-ten-sage-63.vercel.app'

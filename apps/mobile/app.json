@@ -31,7 +31,7 @@
       ]
     },
     "extra": {
-      "apiUrl": "https://agrofieldapi-production.up.railway.app",
+      "apiUrl": "https://api-ten-sage-63.vercel.app",
       "eas": {
         "projectId": "c558a963-a657-4743-8738-debeaf4128ab"
       }
