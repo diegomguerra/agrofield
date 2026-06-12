@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
 import sensible from '@fastify/sensible'
 
+import { adminRoutes } from './routes/admin.js'
 import { authRoutes } from './routes/auth.js'
 import { propertiesRoutes } from './routes/properties.js'
 import { visitsRoutes } from './routes/visits.js'
@@ -33,6 +34,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
     app.addHook('onRequest', authMiddleware)
 
+    await app.register(adminRoutes, { prefix: '/admin' })
     await app.register(authRoutes, { prefix: '/auth' })
     await app.register(propertiesRoutes, { prefix: '/properties' })
     await app.register(visitsRoutes, { prefix: '/visits' })
