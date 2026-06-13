@@ -27,11 +27,22 @@ const NAV = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { isAuthenticated, user, logout } = useAuthStore()
+  const { isAuthenticated, user, logout, _hasHydrated } = useAuthStore()
 
   useEffect(() => {
-    if (!isAuthenticated()) router.push('/login')
-  }, [isAuthenticated, router])
+    if (_hasHydrated && !isAuthenticated()) router.push('/login')
+  }, [_hasHydrated, isAuthenticated, router])
+
+  if (!_hasHydrated) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <Sprout size={32} style={{ color: 'var(--color-primary)' }} className="animate-spin" />
+          <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Carregando…</span>
+        </div>
+      </div>
+    )
+  }
 
   if (!isAuthenticated()) return null
 

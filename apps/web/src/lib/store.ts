@@ -10,6 +10,7 @@ interface User {
 interface AuthState {
   token: string | null
   user: User | null
+  _hasHydrated: boolean
   login: (token: string, user: User) => void
   logout: () => void
   isAuthenticated: () => boolean
@@ -20,6 +21,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       token: null,
       user: null,
+      _hasHydrated: false,
       login: (token, user) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('af_token', token)
@@ -37,6 +39,9 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'agrofield-auth',
       partialize: (state) => ({ token: state.token, user: state.user }),
+      onRehydrateStorage: () => () => {
+        useAuthStore.setState({ _hasHydrated: true })
+      },
     }
   )
 )
