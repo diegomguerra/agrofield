@@ -11,12 +11,18 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/login', async (request, reply) => {
     const { email, password } = loginSchema.parse(request.body)
 
-    const { data, error } = await fastify.supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    // Validate password directly against auth.users using pgcrypto crypt()
+    const { data: authResult, error: authError } = await fastify.supabase.rpc(
+      'verify_password',
+      { p_email: email, p_password: password }
+    )
 
-    if (error || !data.user) {
+    if (authError || !authResult || authResult.length === 0) {
+      return reply.unauthorized('Credenciais inválidas')
+    }
+
+    const authUser = Array.isArray(authResult) ? authResult[0] : authResult
+    if (!authUser?.id) {
       return reply.unauthorized('Credenciais inválidas')
     }
 
@@ -24,7 +30,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const { data: user } = await fastify.supabase
       .from('users')
       .select('id, nome, perfil, tenant_id')
-      .eq('id', data.user.id)
+      .eq('id', authUser.id)
       .single()
 
     if (!user) return reply.notFound('Usuário não encontrado')
