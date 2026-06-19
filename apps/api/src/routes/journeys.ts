@@ -69,4 +69,32 @@ export const journeysRoutes: FastifyPluginAsync = async (fastify) => {
 
     return { ...journey, segments }
   })
+
+  fastify.patch('/:id', async (request) => {
+    const { id } = request.params as { id: string }
+    const tenant_id = getTenant(request)
+    const body = request.body as Record<string, unknown>
+    const allowed = [
+      'fuel_price_per_liter', 'objective', 'client_name', 'invoice_number',
+      'invoice_value', 'observations', 'km_odometer_start', 'km_odometer_end',
+      'total_distance_km', 'average_speed_kmh',
+    ]
+    const updates: Record<string, unknown> = {}
+    for (const key of allowed) {
+      if (key in body) updates[key] = body[key]
+    }
+    if (Object.keys(updates).length === 0) return { ok: true }
+    updates.updated_at = new Date().toISOString()
+
+    const { data, error } = await fastify.supabase
+      .from('journeys')
+      .update(updates)
+      .eq('id', id)
+      .eq('tenant_id', tenant_id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  })
 }

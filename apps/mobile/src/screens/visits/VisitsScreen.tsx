@@ -203,7 +203,12 @@ export default function VisitsScreen() {
 
             // Custo estimado: 10 km/l (premissa cidade/estrada)
             const KM_PER_LITER = 10
-            const totalKm = js.total_distance_km ?? travelKm
+            const odometerKm = (
+              js.km_odometer_start != null &&
+              js.km_odometer_end != null &&
+              js.km_odometer_end > js.km_odometer_start
+            ) ? js.km_odometer_end - js.km_odometer_start : null
+            const totalKm = odometerKm ?? js.total_distance_km ?? travelKm
             const fuelCost = (js.fuel_price_per_liter && totalKm > 0)
               ? (totalKm / KM_PER_LITER) * js.fuel_price_per_liter
               : null
@@ -310,6 +315,12 @@ export default function VisitsScreen() {
                     {fuelCost != null && fuelCost > 0 && (
                       <DetailRow label="Custo jornada" value={`R$ ${fuelCost.toFixed(2)}`} />
                     )}
+                    <TouchableOpacity
+                      style={styles.editBtn}
+                      onPress={() => nav.navigate('EditJourney', { journeyId: js.journey_id })}
+                    >
+                      <Text style={styles.editBtnText}>Editar jornada</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </TouchableOpacity>
@@ -420,6 +431,11 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   detailLabel: { fontSize: 12, color: C.subtle, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
   detailValue: { fontSize: 13, color: C.text, fontWeight: '500' },
+  editBtn: {
+    borderWidth: 1, borderColor: C.primary, borderRadius: 8,
+    padding: 10, alignItems: 'center', marginTop: 10,
+  },
+  editBtnText: { color: C.primary, fontSize: 13, fontWeight: '700' },
   // Empty / FAB
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyText: { fontSize: 16, fontWeight: '600', color: C.muted },

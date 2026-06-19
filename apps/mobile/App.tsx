@@ -13,6 +13,7 @@ import NewVisitScreen from './src/screens/visits/NewVisitScreen'
 import PropertiesScreen from './src/screens/properties/PropertiesScreen'
 import NewPropertyScreen from './src/screens/properties/NewPropertyScreen'
 import JourneyScreen from './src/screens/journey/JourneyScreen'
+import EditJourneyScreen from './src/screens/journey/EditJourneyScreen'
 import { Ionicons } from '@expo/vector-icons'
 
 const Stack = createNativeStackNavigator()
@@ -105,6 +106,17 @@ export default function App() {
                 options={{
                   headerShown: true,
                   headerTitle: 'Nova Propriedade',
+                  headerTintColor: COLORS.primary,
+                  headerStyle: { backgroundColor: '#fff' },
+                  presentation: 'modal',
+                }}
+              />
+              <Stack.Screen
+                name="EditJourney"
+                component={EditJourneyScreen}
+                options={{
+                  headerShown: true,
+                  headerTitle: 'Editar Jornada',
                   headerTintColor: COLORS.primary,
                   headerStyle: { backgroundColor: '#fff' },
                   presentation: 'modal',

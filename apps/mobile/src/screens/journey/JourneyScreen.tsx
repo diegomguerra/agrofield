@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform,
@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
+import * as Location from 'expo-location'
 import { getDb, uuid } from '../../lib/db'
 import { enqueue } from '../../lib/sync'
 import { useAuthStore } from '../../store/auth'
@@ -22,6 +23,13 @@ function parseNum(s: string): number | undefined {
   if (!s) return undefined
   const n = Number(s.replace(',', '.'))
   return isNaN(n) ? undefined : n
+}
+
+function formatCurrencyInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  if (!digits) return ''
+  const cents = parseInt(digits, 10)
+  return (cents / 100).toFixed(2).replace('.', ',')
 }
 
 const C = {
@@ -65,7 +73,11 @@ export default function JourneyScreen() {
   const [vehiclePlate, setVehiclePlate] = useState(savedVehicle?.vehiclePlate ?? '')
   const [fuelType, setFuelType] = useState(savedVehicle?.fuelType ?? '')
   const [showFuelType, setShowFuelType] = useState(false)
-  const [fuelPrice, setFuelPrice] = useState(savedVehicle?.fuelPricePerLiter?.toString() ?? '')
+  const [fuelPrice, setFuelPrice] = useState(
+    savedVehicle?.fuelPricePerLiter != null
+      ? savedVehicle.fuelPricePerLiter.toFixed(2).replace('.', ',')
+      : ''
+  )
   const [showVehicleSection, setShowVehicleSection] = useState(false)
   const [idleGpsCoords, setIdleGpsCoords] = useState<string | null>(null)
 
@@ -82,6 +94,8 @@ export default function JourneyScreen() {
 
   const phase: JourneyPhase = journey?.phase ?? 'idle'
   const currentSeg = journey?.currentSegment ?? null
+  const locationSubscriptionRef = useRef<Location.LocationSubscription | null>(null)
+  const previousWaypointRef = useRef<{ latitude: number; longitude: number } | null>(null)
 
   // Load properties
   const loadProperties = useCallback(async () => {
@@ -109,6 +123,67 @@ export default function JourneyScreen() {
     return () => clearInterval(id)
   }, [currentSeg?.id, currentSeg?.startedAt])
 
+  function stopLocationWatcher() {
+    locationSubscriptionRef.current?.remove()
+    locationSubscriptionRef.current = null
+    previousWaypointRef.current = null
+  }
+
+  useEffect(() => {
+    if (phase !== 'traveling' || currentSeg?.type !== 'travel') {
+      stopLocationWatcher()
+      return
+    }
+    if (locationSubscriptionRef.current) return
+
+    previousWaypointRef.current =
+      currentSeg.endLatitude != null && currentSeg.endLongitude != null
+        ? { latitude: currentSeg.endLatitude, longitude: currentSeg.endLongitude }
+        : currentSeg.startLatitude != null && currentSeg.startLongitude != null
+          ? { latitude: currentSeg.startLatitude, longitude: currentSeg.startLongitude }
+          : null
+
+    let cancelled = false
+    Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 5000,
+        distanceInterval: 20,
+      },
+      (location) => {
+        if (cancelled) return
+        const latest = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        }
+        const activeSeg = useJourneyStore.getState().journey?.currentSegment
+        if (!activeSeg || activeSeg.type !== 'travel') return
+
+        const prev = previousWaypointRef.current
+        const addedKm = prev
+          ? haversineKm(prev.latitude, prev.longitude, latest.latitude, latest.longitude)
+          : 0
+        previousWaypointRef.current = latest
+
+        store.updateCurrentSegment({
+          distanceKm: (activeSeg.distanceKm ?? 0) + addedKm,
+          endLatitude: latest.latitude,
+          endLongitude: latest.longitude,
+        })
+      }
+    ).then((subscription) => {
+      if (cancelled) subscription.remove()
+      else locationSubscriptionRef.current = subscription
+    }).catch((err) => {
+      console.warn('[Journey] GPS watcher error:', err)
+    })
+
+    return () => {
+      cancelled = true
+      stopLocationWatcher()
+    }
+  }, [phase, currentSeg?.id])
+
   // Helpers
   function getTravelSegments(): Segment[] {
     return (journey?.segments ?? []).filter((s) => s.type === 'travel' && s.endedAt)
@@ -135,8 +210,11 @@ export default function JourneyScreen() {
 
   async function handleStartJourney() {
     if (!user) return Alert.alert('Erro', 'Usuario nao autenticado')
-    setBusy(true)
-    try {
+
+    const parsedPrice = parseNum(fuelPrice)
+    const proceedWithStart = async () => {
+      setBusy(true)
+      try {
       const fix = await requestLocation()
       if (!fix) { setBusy(false); return }
 
@@ -153,7 +231,7 @@ export default function JourneyScreen() {
 
       const vConfig: VehicleConfig = {
         vehicleType: vehicleType || undefined, vehiclePlate: vehiclePlate || undefined,
-        fuelType: fuelType || undefined, fuelPricePerLiter: parseNum(fuelPrice),
+        fuelType: fuelType || undefined, fuelPricePerLiter: parsedPrice,
       }
       if (vConfig.vehicleType || vConfig.vehiclePlate) store.setSavedVehicle(vConfig)
 
@@ -176,7 +254,18 @@ export default function JourneyScreen() {
       setKmOdometerStart(''); setOriginPropertyId(null); setOriginName(''); setOriginCity('')
       setObjective(''); setClientName(''); setInvoiceNumber(''); setInvoiceValue('')
       setIdleGpsCoords(null)
-    } finally { setBusy(false) }
+      } finally { setBusy(false) }
+    }
+
+    if (parsedPrice != null && parsedPrice > 50) {
+      Alert.alert('Valor suspeito', `Preco por litro R$ ${fuelPrice} parece alto. Confirma?`, [
+        { text: 'Corrigir', style: 'cancel' },
+        { text: 'Confirmar', onPress: () => { void proceedWithStart() } },
+      ])
+      return
+    }
+
+    await proceedWithStart()
   }
 
   async function handleEndJourney() {
@@ -188,14 +277,15 @@ export default function JourneyScreen() {
       const durMin = (Date.now() - new Date(currentSeg.startedAt).getTime()) / 60000
 
       if (currentSeg.type === 'travel') {
-        const patch: Partial<Segment> = { endedAt: now, durationMinutes: durMin }
+        stopLocationWatcher()
+        const patch: Partial<Segment> = {
+          endedAt: now,
+          durationMinutes: durMin,
+          distanceKm: currentSeg.distanceKm ?? 0,
+        }
         if (fix) {
           patch.endLatitude = fix.latitude
           patch.endLongitude = fix.longitude
-          patch.distanceKm = haversineKm(
-            currentSeg.startLatitude!, currentSeg.startLongitude!,
-            fix.latitude, fix.longitude,
-          )
         }
         store.closeCurrentSegment(patch)
       }
@@ -251,7 +341,13 @@ export default function JourneyScreen() {
       const allSegments = [...journey.segments, staySeg]
       const travelSegs = allSegments.filter((s) => s.type === 'travel' && s.endedAt)
       const staySegs = allSegments.filter((s) => s.type === 'stay')
-      const totDistKm = travelSegs.reduce((a, s) => a + (s.distanceKm ?? 0), 0)
+      const odometerKm = (
+        journey.kmOdometerStart != null &&
+        journey.kmOdometerEnd != null &&
+        journey.kmOdometerEnd > journey.kmOdometerStart
+      ) ? journey.kmOdometerEnd - journey.kmOdometerStart : null
+      const gpsDistKm = travelSegs.reduce((a, s) => a + (s.distanceKm ?? 0), 0)
+      const totDistKm = odometerKm ?? gpsDistKm
       const totTravelMin = travelSegs.reduce((a, s) => a + (s.durationMinutes ?? 0), 0)
       const totStayMin = staySegs.reduce((a, s) => a + (s.durationMinutes ?? 0), 0)
       const avgSpeed = totTravelMin > 0 ? (totDistKm / (totTravelMin / 60)) : 0
@@ -556,8 +652,9 @@ export default function JourneyScreen() {
                   <View style={{ width: 12 }} />
                   <View style={{ flex: 1 }}>
                     <Text style={st.label}>Preco/litro (R$)</Text>
-                    <TextInput style={st.input} value={fuelPrice} onChangeText={setFuelPrice}
-                      placeholder="6,50" keyboardType="numeric" placeholderTextColor={C.subtle} />
+                    <TextInput style={st.input} value={fuelPrice}
+                      onChangeText={(t) => setFuelPrice(formatCurrencyInput(t))}
+                      placeholder="0,00" keyboardType="numeric" placeholderTextColor={C.subtle} />
                   </View>
                 </View>
               </View>

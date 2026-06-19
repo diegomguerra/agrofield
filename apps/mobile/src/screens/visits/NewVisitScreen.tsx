@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
@@ -62,11 +62,17 @@ export default function NewVisitScreen() {
   const km = kmStart && kmEnd && Number(kmEnd) > Number(kmStart)
     ? Number(kmEnd) - Number(kmStart) : null
 
-  useEffect(() => {
+  const loadProperties = useCallback(() => {
     getDb().getAllAsync<Property>(
       'SELECT id, name, tipo, city FROM properties ORDER BY tipo DESC, name ASC'
     ).then(setProperties)
   }, [])
+
+  useEffect(() => {
+    const unsub = nav.addListener('focus', loadProperties)
+    loadProperties()
+    return unsub
+  }, [nav, loadProperties])
 
   async function handleSave() {
     if (!propertyId) return Alert.alert('Atenção', 'Selecione uma propriedade.')
