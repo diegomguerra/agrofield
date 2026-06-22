@@ -86,6 +86,7 @@ export default function JourneyScreen() {
   const [showArrivalList, setShowArrivalList] = useState(false)
   const [arrivalLocationName, setArrivalLocationName] = useState('')
   const [arrivalGpsCoords, setArrivalGpsCoords] = useState<string | null>(null)
+  const [arrivalGpsRaw, setArrivalGpsRaw] = useState<{ latitude: number; longitude: number } | null>(null)
   const [observations, setObservations] = useState('')
   const [workHours, setWorkHours] = useState('')
 
@@ -205,7 +206,10 @@ export default function JourneyScreen() {
     if (!fix) return
     const coordStr = `${fix.latitude.toFixed(6)}, ${fix.longitude.toFixed(6)} (~${Math.round(fix.accuracy ?? 0)}m)`
     if (target === 'idle') setIdleGpsCoords(coordStr)
-    else setArrivalGpsCoords(coordStr)
+    else {
+      setArrivalGpsCoords(coordStr)
+      setArrivalGpsRaw({ latitude: fix.latitude, longitude: fix.longitude })
+    }
   }
 
   async function handleStartJourney() {
@@ -294,9 +298,11 @@ export default function JourneyScreen() {
       setArrivalLocationName('')
       setObservations('')
       setWorkHours('')
+      setArrivalGpsRaw(null)
 
       if (fix) {
         setArrivalGpsCoords(`${fix.latitude.toFixed(6)}, ${fix.longitude.toFixed(6)} (~${Math.round(fix.accuracy ?? 0)}m)`)
+        setArrivalGpsRaw({ latitude: fix.latitude, longitude: fix.longitude })
         // Auto-detect nearby property
         const propsCoords: PropertyWithCoords[] = properties.map((p) => ({
           id: p.id, name: p.name, tipo: p.tipo, latitude: p.latitude, longitude: p.longitude,
@@ -430,9 +436,47 @@ export default function JourneyScreen() {
       })
 
       store.pushSegment(staySeg)
-      Alert.alert('Jornada salva', 'Dados registrados. Sincronize quando houver conexao.')
       store.endJourney()
       setKmOdometerEnd(''); setObservations(''); setWorkHours('')
+
+      const locationToSave = arrivalLocationName.trim()
+      const gpsRawSnapshot = arrivalGpsRaw
+      setArrivalGpsRaw(null)
+
+      if (locationToSave) {
+        Alert.alert(
+          '✓ Jornada salva',
+          `Dados registrados.\n\nDeseja salvar "${locationToSave}" como propriedade para jornadas futuras?`,
+          [
+            { text: 'Não', style: 'cancel' },
+            {
+              text: 'Sim, salvar',
+              onPress: async () => {
+                try {
+                  const propId = uuid()
+                  await getDb().runAsync(
+                    `INSERT INTO properties (id, name, tipo, city, area_hectares, latitude, longitude, tenant_id, synced_at)
+                     VALUES (?, ?, 'cliente', NULL, NULL, ?, ?, ?, NULL)`,
+                    [propId, locationToSave, gpsRawSnapshot?.latitude ?? null, gpsRawSnapshot?.longitude ?? null, user!.tenant_id]
+                  )
+                  await enqueue('properties', 'INSERT', {
+                    id: propId, name: locationToSave, tipo: 'cliente',
+                    city: null, area_hectares: null,
+                    latitude: gpsRawSnapshot?.latitude ?? null,
+                    longitude: gpsRawSnapshot?.longitude ?? null,
+                    tenant_id: user!.tenant_id,
+                  }, uuid())
+                  Alert.alert('✓ Propriedade salva', `"${locationToSave}" adicionada. Sincronize quando houver conexão.`)
+                } catch (e: any) {
+                  Alert.alert('Erro ao salvar propriedade', e?.message ?? String(e))
+                }
+              },
+            },
+          ]
+        )
+      } else {
+        Alert.alert('✓ Jornada salva', 'Dados registrados. Sincronize quando houver conexão.')
+      }
     } catch (e: any) {
       console.error('[Journey] Save error:', e)
       Alert.alert('Erro ao salvar', `${e.message}\n\nTente novamente.`)
@@ -443,7 +487,7 @@ export default function JourneyScreen() {
     Alert.alert('Cancelar jornada', 'Deseja descartar? Todos os dados serao perdidos.', [
       { text: 'Nao', style: 'cancel' },
       { text: 'Descartar', style: 'destructive', onPress: () => {
-        store.endJourney(); setObservations(''); setWorkHours(''); setKmOdometerEnd('')
+        store.endJourney(); setObservations(''); setWorkHours(''); setKmOdometerEnd(''); setArrivalGpsRaw(null)
       }},
     ])
   }

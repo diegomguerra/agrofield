@@ -7,8 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
 import { Alert } from 'react-native'
-import { getDb } from '../../lib/db'
-import { syncProperties } from '../../lib/sync'
+import { getDb, uuid } from '../../lib/db'
+import { syncProperties, enqueue } from '../../lib/sync'
 import { useAuthStore } from '../../store/auth'
 
 const C = {
@@ -43,6 +43,28 @@ export default function PropertiesScreen() {
     setRefreshing(false)
   }
 
+  function handleDelete(item: Property) {
+    Alert.alert(
+      'Excluir propriedade',
+      `Deseja excluir "${item.name}"? Esta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir', style: 'destructive',
+          onPress: async () => {
+            try {
+              await getDb().runAsync('DELETE FROM properties WHERE id = ?', [item.id])
+              await enqueue('properties', 'DELETE', { id: item.id }, uuid())
+              await load()
+            } catch (e: any) {
+              Alert.alert('Erro', e?.message ?? String(e))
+            }
+          },
+        },
+      ]
+    )
+  }
+
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', load)
     load()
@@ -63,10 +85,24 @@ export default function PropertiesScreen() {
       <View style={[styles.card, { borderLeftWidth: 3, borderLeftColor: isPropria ? C.primary : C.soil }]}>
         <View style={styles.cardRow}>
           <Text style={styles.cardName}>{item.name}</Text>
-          <View style={[styles.badge, isPropria ? styles.badgePropria : styles.badgeCliente]}>
-            <Text style={[styles.badgeText, isPropria ? styles.badgeTextPropria : styles.badgeTextCliente]}>
-              {isPropria ? 'PRÓPRIA' : 'CLIENTE'}
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <View style={[styles.badge, isPropria ? styles.badgePropria : styles.badgeCliente]}>
+              <Text style={[styles.badgeText, isPropria ? styles.badgeTextPropria : styles.badgeTextCliente]}>
+                {isPropria ? 'PRÓPRIA' : 'CLIENTE'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => navigation.navigate('EditProperty', { propertyId: item.id })}
+            >
+              <Ionicons name="pencil" size={15} color={C.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => handleDelete(item)}
+            >
+              <Ionicons name="trash-outline" size={15} color="#dc2626" />
+            </TouchableOpacity>
           </View>
         </View>
         {item.city ? <Text style={styles.cardSub}>{item.city}</Text> : null}
@@ -163,6 +199,7 @@ const styles = StyleSheet.create({
   badgeTextPropria: { color: C.primaryDark },
   badgeTextCliente: { color: '#a8451d' },
   empty: { textAlign: 'center', color: C.subtle, marginTop: 40, fontSize: 14 },
+  actionBtn: { padding: 6, borderRadius: 6 },
   fab: {
     position: 'absolute', bottom: 28, right: 20,
     width: 56, height: 56, borderRadius: 28,

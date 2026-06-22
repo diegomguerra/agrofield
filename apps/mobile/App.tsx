@@ -12,6 +12,7 @@ import VisitsScreen from './src/screens/visits/VisitsScreen'
 import NewVisitScreen from './src/screens/visits/NewVisitScreen'
 import PropertiesScreen from './src/screens/properties/PropertiesScreen'
 import NewPropertyScreen from './src/screens/properties/NewPropertyScreen'
+import EditPropertyScreen from './src/screens/properties/EditPropertyScreen'
 import JourneyScreen from './src/screens/journey/JourneyScreen'
 import EditJourneyScreen from './src/screens/journey/EditJourneyScreen'
 import { Ionicons } from '@expo/vector-icons'
@@ -106,6 +107,17 @@ export default function App() {
                 options={{
                   headerShown: true,
                   headerTitle: 'Nova Propriedade',
+                  headerTintColor: COLORS.primary,
+                  headerStyle: { backgroundColor: '#fff' },
+                  presentation: 'modal',
+                }}
+              />
+              <Stack.Screen
+                name="EditProperty"
+                component={EditPropertyScreen}
+                options={{
+                  headerShown: true,
+                  headerTitle: 'Editar Propriedade',
                   headerTintColor: COLORS.primary,
                   headerStyle: { backgroundColor: '#fff' },
                   presentation: 'modal',
