@@ -86,7 +86,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               AgroField
             </div>
             <div style={{ fontSize: '0.68rem', color: 'var(--color-text-subtle)', marginTop: 1 }}>
-              Inseminas
+              Gestão Agropecuária
             </div>
           </div>
         </div>

@@ -55,11 +55,11 @@ export default function LoginPage() {
             Gestão de campo.<br />Simples e precisa.
           </p>
           <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-            Controle de visitas, KM, insumos e relatórios para a Inseminas e suas fazendas parceiras.
+            Controle de visitas, KM, insumos e relatórios para suas fazendas e equipes de campo.
           </p>
         </div>
         <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem' }}>
-          Inovação Agropecuária · Lagoa da Prata, MG
+          AgroField · Gestão Agropecuária
         </div>
       </div>
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
 
           <h1 className="font-display" style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: 4 }}>Entrar</h1>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginBottom: 32 }}>
-            Acesso restrito à equipe de gestão Inseminas
+            Acesso restrito à equipe de gestão
           </p>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

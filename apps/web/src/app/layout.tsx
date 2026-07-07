@@ -3,7 +3,7 @@ import './globals.css'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: 'AgroField — Inseminas',
+  title: 'AgroField — Gestão Agropecuária',
   description: 'Sistema de gestão agropecuária',
 }
 
