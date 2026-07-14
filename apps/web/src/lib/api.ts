@@ -248,6 +248,139 @@ export const journeysApi = {
   },
 }
 
+// ─── Dashboard KPIs ──────────────────────────────────────────────────────────
+export interface DashboardKpi {
+  tenant_id: string
+  mes: string
+  total_jornadas: number
+  vendedores_ativos: number
+  total_km: number
+  total_horas_viagem: number
+  total_horas_parada: number
+  media_km_jornada: number
+  dias_com_atividade: number
+  custo_combustivel_estimado: number
+}
+
+export const dashboardApi = {
+  kpis: async (mes?: string) => {
+    let q = supabase.from('vw_dashboard_kpis').select('*')
+    if (mes) q = q.eq('mes', mes)
+    const { data, error } = await q
+    if (error) throw error
+    return wrap((data ?? []) as DashboardKpi[])
+  },
+  kpisAllTime: async () => {
+    const { data, error } = await supabase.from('vw_dashboard_kpis').select('*')
+    if (error) throw error
+    return wrap((data ?? []) as DashboardKpi[])
+  },
+}
+
+// ─── Vendedores ───────────────────────────────────────────────────────────────
+export interface VendedorStats {
+  tenant_id: string
+  collaborator_id: string
+  vendedor: string
+  perfil?: string
+  total_jornadas: number
+  total_km: number
+  horas_viagem: number
+  media_km_jornada: number
+  dias_ativos: number
+  primeira_jornada?: string
+  ultima_jornada?: string
+  custo_combustivel: number
+  veiculo_principal?: string
+  objetivo_principal?: string
+}
+
+export interface VendedorMensal {
+  tenant_id: string
+  collaborator_id: string
+  vendedor: string
+  mes: string
+  jornadas: number
+  km: number
+  horas: number
+  dias_ativos: number
+}
+
+export const vendedoresApi = {
+  stats: async () => {
+    const { data, error } = await supabase.from('vw_vendedor_stats').select('*')
+    if (error) throw error
+    return wrap((data ?? []) as VendedorStats[])
+  },
+  mensal: async (mes?: string) => {
+    let q = supabase.from('vw_vendedor_mensal').select('*')
+    if (mes) q = q.eq('mes', mes)
+    const { data, error } = await q
+    if (error) throw error
+    return wrap((data ?? []) as VendedorMensal[])
+  },
+}
+
+// ─── Jornadas View ────────────────────────────────────────────────────────────
+export interface JornadaCompleta {
+  id: string
+  tenant_id: string
+  date: string
+  started_at?: string
+  ended_at?: string
+  collaborator_id: string
+  vendedor: string
+  total_distance_km: number
+  total_travel_minutes: number
+  total_stay_minutes: number
+  km_odometer_start?: number
+  km_odometer_end?: number
+  fuel_price_per_liter?: number
+  vehicle_type?: string
+  fuel_type?: string
+  objective?: string
+  origin_name?: string
+  origin_city?: string
+  client_name?: string
+  observations?: string
+  total_segmentos?: number
+}
+
+export const jornadasApi = {
+  list: async (params?: { collaborator_id?: string; mes?: string }) => {
+    let q = supabase
+      .from('vw_jornadas_completas')
+      .select('*')
+      .order('date', { ascending: false })
+    if (params?.collaborator_id) q = q.eq('collaborator_id', params.collaborator_id)
+    if (params?.mes) {
+      q = q.gte('date', `${params.mes}-01`).lte('date', `${params.mes}-31`)
+    }
+    const { data, error } = await q
+    if (error) throw error
+    return wrap((data ?? []) as JornadaCompleta[])
+  },
+}
+
+// ─── Tenant Users ─────────────────────────────────────────────────────────────
+export interface TenantUser {
+  id: string
+  nome: string
+  perfil?: string
+  tenant_id: string
+}
+
+export const tenantUsersApi = {
+  list: async () => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, nome, perfil, tenant_id')
+      .order('nome')
+    if (error) throw error
+    return wrap((data ?? []) as TenantUser[])
+  },
+}
+
 // ─── Reports ─────────────────────────────────────────────────────────────────
 // The views use Portuguese column names; we alias them to match the dashboard's
 // existing TypeScript shape (total_km, property_name, tipo). vw_visitas_por_fazenda
