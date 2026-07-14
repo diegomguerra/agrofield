@@ -26,7 +26,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.setItem('af_token', token)
         }
-        set({ token, user })
+        set({ token, user, _hasHydrated: true })
       },
       logout: () => {
         if (typeof window !== 'undefined') {
@@ -39,9 +39,18 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'agrofield-auth',
       partialize: (state) => ({ token: state.token, user: state.user }),
-      onRehydrateStorage: () => () => {
+      onRehydrateStorage: () => (state, error) => {
         useAuthStore.setState({ _hasHydrated: true })
       },
     }
   )
 )
+
+// Fallback: if onRehydrateStorage never fires, force hydration on client
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    if (!useAuthStore.getState()._hasHydrated) {
+      useAuthStore.setState({ _hasHydrated: true })
+    }
+  }, 500)
+}

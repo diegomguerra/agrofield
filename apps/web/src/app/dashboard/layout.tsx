@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/lib/store'
@@ -28,12 +28,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter()
   const pathname = usePathname()
   const { isAuthenticated, user, logout, _hasHydrated } = useAuthStore()
+  const [timedOut, setTimedOut] = useState(false)
 
   useEffect(() => {
-    if (_hasHydrated && !isAuthenticated()) router.push('/login')
-  }, [_hasHydrated, isAuthenticated, router])
+    const t = setTimeout(() => setTimedOut(true), 2000)
+    return () => clearTimeout(t)
+  }, [])
 
-  if (!_hasHydrated) {
+  useEffect(() => {
+    if ((_hasHydrated || timedOut) && !isAuthenticated()) router.push('/login')
+  }, [_hasHydrated, timedOut, isAuthenticated, router])
+
+  if (!_hasHydrated && !timedOut) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
