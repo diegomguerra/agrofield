@@ -10,7 +10,6 @@ import {
   MapPin,
   CalendarCheck,
   BarChart3,
-  Truck,
   Route,
   Users,
   LogOut,
@@ -22,7 +21,6 @@ const NAV = [
   { href: '/dashboard/vendedores', label: 'Vendedores', icon: Users },
   { href: '/dashboard/propriedades', label: 'Propriedades', icon: MapPin },
   { href: '/dashboard/visitas', label: 'Visitas', icon: CalendarCheck },
-  { href: '/dashboard/km-diario', label: 'KM Diário', icon: Truck },
   { href: '/dashboard/relatorios', label: 'Relatórios', icon: BarChart3 },
 ]
 
