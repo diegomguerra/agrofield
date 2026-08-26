@@ -4,9 +4,11 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
-import { View, ActivityIndicator } from 'react-native'
+import { View, ActivityIndicator, AppState, Alert } from 'react-native'
 import { initDb } from './src/lib/db'
 import { useAuthStore } from './src/store/auth'
+import { maybeRefreshToken } from './src/lib/apiClient'
+import { syncPendingItems } from './src/lib/sync'
 import LoginScreen from './src/screens/auth/LoginScreen'
 import VisitsScreen from './src/screens/visits/VisitsScreen'
 import NewVisitScreen from './src/screens/visits/NewVisitScreen'
@@ -71,6 +73,23 @@ export default function App() {
         setDbReady(true)
       })
   }, [])
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    const runSync = async () => {
+      await maybeRefreshToken()
+      const result = await syncPendingItems().catch(() => null)
+      if (!cancelled && result?.authError) {
+        Alert.alert('Sessão expirada', 'Faça login novamente para sincronizar seus dados.')
+      }
+    }
+    runSync()
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') runSync()
+    })
+    return () => { cancelled = true; sub.remove() }
+  }, [token])
 
   if (!dbReady) {
     return (

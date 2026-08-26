@@ -1,15 +1,12 @@
-import axios from 'axios'
 import { getDb } from './db'
 import { useAuthStore } from '../store/auth'
-import { API_URL } from './config'
+import { apiClient } from './apiClient'
 
 export async function syncProperties(): Promise<void> {
   const token = useAuthStore.getState().token
   if (!token) return
   try {
-    const { data } = await axios.get(`${API_URL}/properties`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const { data } = await apiClient.get('/properties')
     const db = getDb()
     for (const p of data) {
       await db.runAsync(
@@ -40,7 +37,7 @@ export async function enqueue(
   )
 }
 
-export async function syncPendingItems(): Promise<{ synced: number; failed: number }> {
+export async function syncPendingItems(): Promise<{ synced: number; failed: number; authError?: boolean }> {
   const db = getDb()
   const token = useAuthStore.getState().token
   if (!token) return { synced: 0, failed: 0 }
@@ -52,10 +49,9 @@ export async function syncPendingItems(): Promise<{ synced: number; failed: numb
   if (!pending.length) return { synced: 0, failed: 0 }
 
   try {
-    const { data } = await axios.post(
-      `${API_URL}/sync`,
-      { items: pending.map(i => ({ ...i, payload: JSON.parse(i.payload) })) },
-      { headers: { Authorization: `Bearer ${token}` } }
+    const { data } = await apiClient.post(
+      `/sync`,
+      { items: pending.map(i => ({ ...i, payload: JSON.parse(i.payload) })) }
     )
     const errorIds = new Set((data.errors ?? []).map((e: any) => e.id))
     const successIds = pending.map(p => p.id).filter(id => !errorIds.has(id))
@@ -64,7 +60,7 @@ export async function syncPendingItems(): Promise<{ synced: number; failed: numb
       await db.runAsync(`UPDATE sync_queue SET synced_at = datetime('now') WHERE id IN (${ph})`, successIds)
     }
     return { synced: successIds.length, failed: data.errors?.length ?? 0 }
-  } catch {
-    return { synced: 0, failed: pending.length }
+  } catch (err: any) {
+    return { synced: 0, failed: pending.length, authError: !!err?.isAuthFailure }
   }
 }

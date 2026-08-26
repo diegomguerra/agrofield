@@ -8,7 +8,7 @@ import { useNavigation } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
 import * as Location from 'expo-location'
 import { getDb, uuid } from '../../lib/db'
-import { enqueue } from '../../lib/sync'
+import { enqueue, syncPendingItems } from '../../lib/sync'
 import { useAuthStore } from '../../store/auth'
 import {
   useJourneyStore, ActiveJourney, Segment, JourneyPhase,
@@ -437,6 +437,15 @@ export default function JourneyScreen() {
 
       store.pushSegment(staySeg)
       store.endJourney()
+
+      syncPendingItems()
+        .then((result) => {
+          if (result.authError) {
+            Alert.alert('Sessão expirada', 'Faça login novamente para sincronizar seus dados.')
+          }
+        })
+        .catch(() => {})
+
       setKmOdometerEnd(''); setObservations(''); setWorkHours('')
 
       const locationToSave = arrivalLocationName.trim()

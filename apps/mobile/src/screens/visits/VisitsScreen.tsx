@@ -121,7 +121,10 @@ export default function VisitsScreen() {
 
   async function handleSync() {
     setSyncing(true)
-    await syncPendingItems()
+    const result = await syncPendingItems()
+    if (result.authError) {
+      Alert.alert('Sessão expirada', 'Faça login novamente para sincronizar seus dados.')
+    }
     await load()
     setSyncing(false)
   }

@@ -16,6 +16,7 @@ interface AuthState {
   login: (token: string, user: User) => void
   logout: () => void
   isTokenValid: () => boolean
+  setToken: (token: string) => void
 }
 
 interface JwtPayload {
@@ -48,6 +49,10 @@ export const useAuthStore = create<AuthState>()(
       login: (token, user) =>
         set({ token, user: ensureUserClaimsFromToken(token, user) }),
       logout: () => set({ token: null, user: null }),
+      setToken: (token) => {
+        const { user } = get()
+        set({ token, user: user ? ensureUserClaimsFromToken(token, user) : user })
+      },
       isTokenValid: () => {
         const { token } = get()
         if (!token) return false
